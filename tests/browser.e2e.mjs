@@ -45,7 +45,14 @@ async function open(width = 1440, height = 1000) {
   contexts.push(context);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('http://127.0.0.1:5183/');
+  page.on('console', (message) => {
+    if (
+      message.type() === 'error' &&
+      /THREE\.WebGLProgram|VALIDATE_STATUS|GL_INVALID|WebGL.*INVALID/i.test(message.text())
+    )
+      errors.push(message.text());
+  });
+  await page.goto('http://127.0.0.1:5183/', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Auf die Strecke', exact: true }).waitFor();
   return page;
 }
@@ -63,8 +70,12 @@ try {
   await host.getByRole('button', { name: /Dust Valley/ }).click();
   assert.equal(await host.locator('.scene-track b').innerText(), 'Dust Valley');
   await host.getByRole('button', { name: /Neon Harbor/ }).click();
-  await host.waitForTimeout(500);
+  await host.waitForTimeout(1200);
   await shot(host, 'neon.png');
+  await host.getByLabel('Grafikqualität', { exact: true }).selectOption('balanced');
+  await host.waitForTimeout(400);
+  await shot(host, 'neon-balanced.png');
+  await host.getByLabel('Grafikqualität', { exact: true }).selectOption('high');
   await host.getByRole('button', { name: /Sunset Bay/ }).click();
   await host.getByRole('button', { name: 'Garage', exact: true }).click();
   await host.getByRole('button', { name: /Coral Club/ }).click();
@@ -82,6 +93,7 @@ try {
   );
   await shot(host, 'race.png');
   await host.keyboard.press('Escape');
+  await host.getByLabel('Grafikqualität im Rennen', { exact: true }).selectOption('balanced');
   await host.getByRole('button', { name: 'Rennen verlassen', exact: true }).click();
   const saved = await host.evaluate(() =>
     JSON.parse(localStorage.getItem('pocket-circuit.profile.v1')),
@@ -172,6 +184,7 @@ try {
         'host disconnect',
         'mobile layout',
         'mobile gas control',
+        'high and balanced graphics with shader validation',
       ],
       artifacts: artifacts.pathname,
     }),

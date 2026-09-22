@@ -2338,3 +2338,79 @@ footer > span:last-child {
     order: -1;
   }
 }
+.scene-tools {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.quality-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #18262666;
+  border: 1px solid #ffffff4a;
+  backdrop-filter: blur(10px);
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: #eef5e7;
+}
+.quality-control > span {
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.quality-control select {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: #f0f6e9;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 1px 2px;
+  min-width: 52px;
+}
+.quality-control option {
+  background: #203032;
+  color: #eef5e7;
+}
+.pause-quality {
+  justify-content: space-between;
+  padding: 12px;
+  margin: 20px 0;
+}
+.pause-quality select {
+  font-size: 12px;
+}
+.weather-info {
+  color: #c4f34b !important;
+  letter-spacing: 0.5px;
+}
+@media (max-width: 520px) {
+  .scene-topline > .eyebrow {
+    max-width: 93px;
+    line-height: 1.5;
+    letter-spacing: 1px;
+  }
+  .scene-tools {
+    gap: 5px;
+  }
+  .quality-control {
+    padding: 6px;
+  }
+  .quality-control > span {
+    font-size: 7px;
+    letter-spacing: 0.6px;
+  }
+  .quality-control select {
+    font-size: 10px;
+    min-width: 43px;
+  }
+  .pause-quality {
+    padding: 12px;
+  }
+  .pause-quality > span {
+    font-size: 9px;
+  }
+}

@@ -26,6 +26,14 @@ Für den Standardbetrieb sind **keine Umgebungsvariablen und keine eigene Datenb
 - Münzen, XP, Level und sechs kosmetische Skins mit identischen Fahrwerten.
 - Geräte-lokaler Fortschritt in `localStorage`, mit Schutz vor doppelt vergebenen Rennbelohnungen.
 - Tastatur und Touch-Steuerung, responsive Menüs und animierte 3D-Garagenvorschau.
+- Reflektierender Klarlack, Metallfelgen, weichere Karosserien und HDR-Umgebungslicht.
+- Echte planare Spiegelungen auf dem Meer und der nassen Straße in Neon Harbor, mit animierten Wellen und unregelmäßigen Pfützen.
+- Wetter je Strecke: warme Küstenbeleuchtung und Wolken, Canyon-Staub oder Regen mit Spritzringen. Wetter ist visuell und verändert die Fahrwerte nicht.
+- Kart-zu-Kart-Kollisionen und Randbegrenzungen mit Impulsen; KI vermeidet Verkehr, Schilde dämpfen Stöße.
+- Gelenkte und rotierende Räder, Federung, Fahrerbewegung, Bremslichter, Drift-/Aufprallpartikel und eine reagierende Kamera.
+- **Grafik → Hoch / Flüssig** im Menü und im Rennmenü; reduziert bei Bedarf Spiegelungsauflösung, Schatten und Partikel. Die Einstellung wird auf dem Gerät gespeichert.
+
+![Neon Harbor: Regen, nasse Fahrbahn und reflektierende Karts](docs/neon-harbor.png)
 
 ## Steuerung
 
@@ -55,6 +63,7 @@ Anschließend die von Vite ausgegebene lokale Adresse öffnen.
 npm test          # Simulation, Fortschritt und Netzwerkprotokoll
 npm run build    # TypeScript-Prüfung und Produktionsbuild
 npm run preview  # Gebaute Version lokal ansehen
+npm run test:graphics # Browser-Bilder und Shader-Prüfung für alle Strecken
 ```
 
 ### Browser- und Multiplayer-Test
@@ -93,6 +102,9 @@ src/
   GameSurface.tsx       Spielschleife, Eingaben und HUD
   game/simulation.ts    Fahrphysik, Strecken, KI, Items und Runden
   game/renderer.ts      Three.js-Welten, Karts, Effekte und Kamera
+  game/kartVisuals.ts   Fahrzeugmodelle, Animationen und Partikel
+  game/environment.ts  HDR-Himmel, Materialien und planare Spiegelungen
+  game/weather.ts      GPU-Regen, Spritzringe, Wolken und Staub
   network.ts            PeerJS-Räume, Protokollvalidierung und WebRTC
   profile.ts            Münzen, XP, Käufe und lokale Speicherung
   shared.ts             Datentypen, Strecken- und Skin-Katalog

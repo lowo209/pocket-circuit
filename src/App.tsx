@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 import GameSurface from './GameSurface';
 import type { RaceSession } from './GameSurface';
-import { TRACKS, SKINS, getTrack, getSkin } from './shared';
+import { TRACKS, SKINS, TRACK_WEATHER, getTrack, getSkin } from './shared';
+import type { GraphicsQuality } from './game/environment';
 import type { InputState, RaceState, RoomState, TrackId } from './shared';
 import { createRace, trackSamples } from './game/simulation';
 import { Multiplayer } from './network';
@@ -30,8 +31,16 @@ import { loadProfile, saveProfile, levelFor, rewardRace, buySkin, formatTime } f
 import type { Profile } from './profile';
 
 type Page = 'race' | 'garage' | 'career';
+function savedQuality(): GraphicsQuality {
+  try {
+    const saved = localStorage.getItem('pocket-circuit.graphics.v1');
+    if (saved === 'high' || saved === 'balanced') return saved;
+  } catch {}
+  return window.matchMedia('(max-width: 800px)').matches ? 'balanced' : 'high';
+}
 export default function App() {
   const [profile, setProfile] = useState(loadProfile),
+    [quality, setQuality] = useState<GraphicsQuality>(savedQuality),
     [page, setPage] = useState<Page>('race'),
     [track, setTrack] = useState<TrackId>('coast'),
     [mode, setMode] = useState<'solo' | 'online'>('solo'),
@@ -64,6 +73,11 @@ export default function App() {
     if (joinCode) setMode('online');
     return () => netRef.current?.dispose();
   }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem('pocket-circuit.graphics.v1', quality);
+    } catch {}
+  }, [quality]);
   useEffect(() => {
     if (!saveProfile(profile))
       setNotice(
@@ -283,6 +297,8 @@ export default function App() {
           <GameSurface
             trackId={track}
             skinId={page === 'garage' ? viewSkin : profile.equipped}
+            quality={quality}
+            onQuality={setQuality}
             race={race}
             network={network}
             remoteInputs={inputs}
@@ -296,9 +312,22 @@ export default function App() {
                 <span className="eyebrow">
                   <i /> {page === 'garage' ? 'DEINE GARAGE' : 'THE POCKET RACING CLUB'}
                 </span>
-                <button className="help-button" onClick={() => setHelp(true)}>
-                  <Keyboard size={16} /> Steuerung
-                </button>
+                <div className="scene-tools">
+                  <label className="quality-control">
+                    <span>GRAFIK</span>
+                    <select
+                      aria-label="Grafikqualität"
+                      value={quality}
+                      onChange={(e) => setQuality(e.target.value as GraphicsQuality)}
+                    >
+                      <option value="high">Hoch</option>
+                      <option value="balanced">Flüssig</option>
+                    </select>
+                  </label>
+                  <button className="help-button" onClick={() => setHelp(true)}>
+                    <Keyboard size={16} /> Steuerung
+                  </button>
+                </div>
               </div>
               <div className="scene-copy">
                 <span className="outlined-tag">
@@ -352,7 +381,7 @@ export default function App() {
                   <ArrowUpRight size={20} />
                 </b>
                 <div>
-                  0{TRACKS.indexOf(selectedTrack) + 1} <i /> POCKET CIRCUIT
+                  0{TRACKS.indexOf(selectedTrack) + 1} <i /> {TRACK_WEATHER[track]}
                 </div>
               </div>
               <span className="live-scene-label">LIVE 3D PREVIEW</span>
@@ -697,7 +726,7 @@ export default function App() {
             POCKET CIRCUIT <i /> ONE MORE LAP.
           </span>
           <span>
-            Indie Kart Racing <span className="footer-divider">/</span> v1.0
+            Indie Kart Racing <span className="footer-divider">/</span> v1.1
           </span>
         </footer>
       )}

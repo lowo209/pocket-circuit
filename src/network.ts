@@ -96,6 +96,9 @@ function racer(value: unknown): value is Racer {
       'coins',
     ].every((key) => finite(value[key])) &&
     ['bot', 'finished', 'drifting'].every((key) => typeof value[key] === 'boolean') &&
+    (value.impact === undefined ||
+      (finite(value.impact) && value.impact >= 0 && value.impact <= 1)) &&
+    (value.steering === undefined || (finite(value.steering) && Math.abs(value.steering) <= 1)) &&
     (value.finishTime === null || finite(value.finishTime)) &&
     (value.item === null ||
       value.item === 'boost' ||

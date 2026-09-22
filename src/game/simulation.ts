@@ -13,12 +13,20 @@ const TAU = Math.PI * 2;
 const GATES_PER_LAP = 12;
 const MAX_RACE_SECONDS = 240;
 const FIXED_STEP = 1 / 60;
+export const KART_HALF_WIDTH = 1.35;
+export const KART_HALF_LENGTH = 1.8;
 const trackCache = new Map<TrackId, TrackSample[]>();
 const lengthCache = new Map<TrackId, number>();
 interface RacerRuntime {
   nextGate: number;
   itemHeld: boolean;
   previousDrift: boolean;
+  knockX: number;
+  knockZ: number;
+  offsetX: number;
+  offsetZ: number;
+  botLane: number;
+  wasBot: boolean;
 }
 interface RaceRuntime {
   racers: Map<string, RacerRuntime>;
@@ -172,6 +180,12 @@ function runtimeFor(state: RaceState): RaceRuntime {
         nextGate: Math.max(0, Math.floor(r.progress / gateDistance) + 1),
         itemHeld: false,
         previousDrift: false,
+        knockX: 0,
+        knockZ: 0,
+        offsetX: 0,
+        offsetZ: 0,
+        botLane: nearestTrackPoint(state.trackId, r.x, r.z).lateral,
+        wasBot: r.bot,
       }),
     );
     runtimes.set(state, runtime);
@@ -228,6 +242,8 @@ export function createRace(trackId: TrackId, players: Player[], fillBots = true)
         driftCharge: 0,
         drifting: false,
         coins: 0,
+        impact: 0,
+        steering: 0,
       };
     }),
     pickups: Array.from({ length: 24 }, (_, i) => ({
@@ -288,6 +304,130 @@ function useItem(state: RaceState, racer: Racer): void {
   racer.item = null;
 }
 
+interface Contact {
+  x: number;
+  z: number;
+  depth: number;
+}
+
+/** Separating-axis contact for the same oriented footprint as the visible kart. */
+function kartContact(a: Racer, b: Racer): Contact | null {
+  const dx = b.x - a.x,
+    dz = b.z - a.z;
+  if (dx * dx + dz * dz > 4 * (KART_HALF_WIDTH ** 2 + KART_HALF_LENGTH ** 2)) return null;
+  const aRight = { x: Math.cos(a.heading), z: -Math.sin(a.heading) };
+  const aForward = { x: Math.sin(a.heading), z: Math.cos(a.heading) };
+  const bRight = { x: Math.cos(b.heading), z: -Math.sin(b.heading) };
+  const bForward = { x: Math.sin(b.heading), z: Math.cos(b.heading) };
+  let contact: Contact = { x: 0, z: 0, depth: Infinity };
+  for (const axis of [aRight, aForward, bRight, bForward]) {
+    const span =
+      KART_HALF_WIDTH *
+        (Math.abs(axis.x * aRight.x + axis.z * aRight.z) +
+          Math.abs(axis.x * bRight.x + axis.z * bRight.z)) +
+      KART_HALF_LENGTH *
+        (Math.abs(axis.x * aForward.x + axis.z * aForward.z) +
+          Math.abs(axis.x * bForward.x + axis.z * bForward.z));
+    const projected = dx * axis.x + dz * axis.z;
+    const depth = span - Math.abs(projected);
+    if (depth <= 0) return null;
+    if (depth < contact.depth) {
+      const side = projected < 0 ? -1 : 1;
+      contact = { x: axis.x * side, z: axis.z * side, depth };
+    }
+  }
+  return contact;
+}
+
+function displace(racer: Racer, meta: RacerRuntime, x: number, z: number): void {
+  racer.x += x;
+  racer.z += z;
+  // A bot's spline position retains the bump and eases back over the next second.
+  if (racer.bot) {
+    meta.offsetX += x;
+    meta.offsetZ += z;
+  }
+}
+
+function velocity(racer: Racer, meta: RacerRuntime): { x: number; z: number } {
+  return {
+    x: Math.sin(racer.heading) * racer.speed + meta.knockX,
+    z: Math.cos(racer.heading) * racer.speed + meta.knockZ,
+  };
+}
+
+function impulse(racer: Racer, meta: RacerRuntime, x: number, z: number): void {
+  const forwardX = Math.sin(racer.heading),
+    forwardZ = Math.cos(racer.heading);
+  const longitudinal = x * forwardX + z * forwardZ;
+  racer.speed = clamp(racer.speed + longitudinal, -12, 56);
+  meta.knockX = clamp(meta.knockX + x - longitudinal * forwardX, -12, 12);
+  meta.knockZ = clamp(meta.knockZ + z - longitudinal * forwardZ, -12, 12);
+}
+
+function resolveKartCollisions(state: RaceState, runtime: RaceRuntime): void {
+  // Repeated position passes also resolve a small pack without stacking karts.
+  for (let pass = 0; pass < 5; pass++) {
+    for (let i = 0; i < state.racers.length; i++) {
+      const a = state.racers[i];
+      if (a.finished) continue;
+      for (let j = i + 1; j < state.racers.length; j++) {
+        const b = state.racers[j];
+        if (b.finished) continue;
+        const contact = kartContact(a, b);
+        if (!contact) continue;
+        const ma = runtime.racers.get(a.id)!,
+          mb = runtime.racers.get(b.id)!;
+        const weightA = a.shield > 0 ? 0.3 : 1,
+          weightB = b.shield > 0 ? 0.3 : 1;
+        const totalWeight = weightA + weightB;
+        const separation = contact.depth + 0.003;
+        displace(
+          a,
+          ma,
+          (-contact.x * separation * weightA) / totalWeight,
+          (-contact.z * separation * weightA) / totalWeight,
+        );
+        displace(
+          b,
+          mb,
+          (contact.x * separation * weightB) / totalWeight,
+          (contact.z * separation * weightB) / totalWeight,
+        );
+        if (pass !== 0) continue;
+        const va = velocity(a, ma),
+          vb = velocity(b, mb);
+        const closing = Math.max(0, (va.x - vb.x) * contact.x + (va.z - vb.z) * contact.z);
+        const force = Math.min(27, (closing * 1.18) / totalWeight);
+        impulse(a, ma, -contact.x * force * weightA, -contact.z * force * weightA);
+        impulse(b, mb, contact.x * force * weightB, contact.z * force * weightB);
+        const strength = clamp((closing + contact.depth * 3) / 27, 0.07, 1);
+        a.impact = Math.max(a.impact ?? 0, strength * weightA);
+        b.impact = Math.max(b.impact ?? 0, strength * weightB);
+      }
+    }
+  }
+}
+
+function constrainToRoad(state: RaceState, racer: Racer, meta: RacerRuntime, dt: number): void {
+  if (racer.finished) return;
+  const road = nearestTrackPoint(state.trackId, racer.x, racer.z);
+  const rail = getTrack(state.trackId).width / 2 + 4;
+  if (road.distance <= rail) return;
+  const side = Math.sign(road.lateral) || 1;
+  const normalX = Math.cos(road.heading) * side,
+    normalZ = -Math.sin(road.heading) * side;
+  displace(racer, meta, road.x + normalX * rail - racer.x, road.z + normalZ * rail - racer.z);
+  const motion = velocity(racer, meta);
+  const outward = Math.max(0, motion.x * normalX + motion.z * normalZ);
+  const protection = racer.shield > 0 ? 0.4 : 1;
+  const force = Math.min(16, outward * 1.15) * protection;
+  impulse(racer, meta, -normalX * force, -normalZ * force);
+  racer.impact = Math.max(racer.impact ?? 0, clamp(outward / 23, 0.06, 1) * protection);
+  const recovery = road.heading - side * 0.26;
+  racer.heading += angleDelta(racer.heading, recovery) * Math.min(1, dt * 3.6);
+}
+
 function advanceRacer(
   state: RaceState,
   racer: Racer,
@@ -296,8 +436,11 @@ function advanceRacer(
   runtime: RaceRuntime,
 ): void {
   const meta = runtime.racers.get(racer.id)!;
+  racer.impact = (racer.impact ?? 0) * Math.exp(-dt * 7);
+  if (racer.impact < 0.005) racer.impact = 0;
   if (racer.finished) {
     racer.speed *= Math.exp(-dt * 3);
+    racer.steering = (racer.steering ?? 0) * Math.exp(-dt * 9);
     return;
   }
   racer.boost = Math.max(0, racer.boost - dt);
@@ -311,16 +454,51 @@ function advanceRacer(
     const here = sampleTrack(state.trackId, racer.progress),
       ahead = sampleTrack(state.trackId, racer.progress + 20);
     const curve = Math.abs(angleDelta(here.heading, ahead.heading));
-    const speedTarget =
+    if (!meta.wasBot) {
+      meta.botLane = nearestTrackPoint(state.trackId, racer.x, racer.z).lateral;
+      meta.offsetX = 0;
+      meta.offsetZ = 0;
+    }
+    let speedTarget =
       (29.5 + Math.sin(botIndex * 3) * 2.7) * (1 - Math.min(curve, 1) * 0.18) +
       (racer.boost > 0 ? 17 : 0) -
       (racer.stun > 0 ? 16 : 0);
+    const laneLimit = getTrack(state.trackId).width / 2 - 1.65;
+    let desiredLane = Math.sin(botIndex * 2.4 + racer.progress / 90) * 2.4;
+    for (const other of state.racers) {
+      if (other.id === racer.id || other.finished) continue;
+      const dx = other.x - racer.x,
+        dz = other.z - racer.z;
+      const gap = dx * Math.sin(here.heading) + dz * Math.cos(here.heading);
+      const across = dx * Math.cos(here.heading) - dz * Math.sin(here.heading);
+      if (gap < -0.5 || gap > 23 || Math.abs(across) > 3.6) continue;
+      const otherLane = meta.botLane + across;
+      let side = Math.abs(across) > 0.25 ? -Math.sign(across) : botIndex % 2 === 0 ? 1 : -1;
+      let target = clamp(otherLane + side * 3.9, -laneLimit, laneLimit);
+      if (Math.abs(target - otherLane) < 3.1) {
+        side *= -1;
+        target = clamp(otherLane + side * 3.9, -laneLimit, laneLimit);
+      }
+      desiredLane = target;
+      if (gap < 9 && Math.abs(across) < 2.8)
+        speedTarget = Math.min(speedTarget, Math.max(5, other.speed + Math.max(0, gap - 4) * 1.8));
+    }
+    meta.botLane += clamp(desiredLane - meta.botLane, -3.8 * dt, 3.8 * dt);
     racer.speed += (speedTarget - racer.speed) * Math.min(1, dt * 1.2);
     const nextProgress = racer.progress + racer.speed * dt;
     const road = sampleTrack(state.trackId, nextProgress);
-    const lane = Math.sin(botIndex * 2.4 + nextProgress / 90) * 2.4;
-    racer.x = road.x + Math.cos(road.heading) * lane;
-    racer.z = road.z - Math.sin(road.heading) * lane;
+    meta.offsetX = (meta.offsetX + meta.knockX * dt) * Math.exp(-dt * 1.65);
+    meta.offsetZ = (meta.offsetZ + meta.knockZ * dt) * Math.exp(-dt * 1.65);
+    racer.x = road.x + Math.cos(road.heading) * meta.botLane + meta.offsetX;
+    racer.z = road.z - Math.sin(road.heading) * meta.botLane + meta.offsetZ;
+    const steering = clamp(
+      angleDelta(racer.heading, road.heading) / Math.max(dt, 0.001) / 1.35 +
+        (desiredLane - meta.botLane) * 0.13,
+      -1,
+      1,
+    );
+    racer.steering =
+      (racer.steering ?? 0) + (steering - (racer.steering ?? 0)) * Math.min(1, dt * 9);
     racer.heading = road.heading;
     updateProgress(state, racer, nextProgress, meta);
     if (racer.item && random(runtime) < dt * 0.35) useItem(state, racer);
@@ -338,6 +516,7 @@ function advanceRacer(
       racer.speed += (maxSpeed - racer.speed) * Math.min(1, dt * (offroad ? 3 : 2));
     racer.speed = clamp(racer.speed, -9, racer.boost > 0 ? 54 : 39);
     const turn = Number(input.right) - Number(input.left);
+    racer.steering = (racer.steering ?? 0) + (turn - (racer.steering ?? 0)) * Math.min(1, dt * 10);
     racer.drifting = input.drift && Math.abs(racer.speed) > 11 && turn !== 0 && !offroad;
     if (racer.drifting) racer.driftCharge = Math.min(2, racer.driftCharge + dt);
     if (!input.drift && meta.previousDrift && racer.driftCharge > 0.45) {
@@ -348,24 +527,17 @@ function advanceRacer(
     const steerSpeed = 1.35 * Math.min(1, Math.abs(racer.speed) / 9) * (racer.drifting ? 1.32 : 1);
     racer.heading += turn * steerSpeed * dt * (racer.speed < 0 ? -1 : 1);
     racer.heading = wrap(racer.heading + Math.PI, TAU) - Math.PI;
-    racer.x += Math.sin(racer.heading) * racer.speed * dt;
-    racer.z += Math.cos(racer.heading) * racer.speed * dt;
+    racer.x += (Math.sin(racer.heading) * racer.speed + meta.knockX) * dt;
+    racer.z += (Math.cos(racer.heading) * racer.speed + meta.knockZ) * dt;
     const road = nearestTrackPoint(state.trackId, racer.x, racer.z);
     const delta = distanceDelta(roadBefore.progress, road.progress, trackLength(state.trackId));
     // A projection jump across a nearby road section cannot grant race progress.
     if (Math.abs(delta) < Math.abs(racer.speed) * dt * 2.5 + 0.5)
       updateProgress(state, racer, racer.progress + delta, meta);
-    const rail = halfWidth + 4;
-    if (road.distance > rail) {
-      const side = Math.sign(road.lateral) || 1;
-      racer.x = road.x + Math.cos(road.heading) * rail * side;
-      racer.z = road.z - Math.sin(road.heading) * rail * side;
-      racer.speed *= Math.exp(-dt * 3);
-      // A glancing rail collision gently points the kart back along the course.
-      const recovery = road.heading - side * 0.26;
-      racer.heading += angleDelta(racer.heading, recovery) * Math.min(1, dt * 3.6);
-    }
   }
+  meta.wasBot = racer.bot;
+  meta.knockX *= Math.exp(-dt * 4.5);
+  meta.knockZ *= Math.exp(-dt * 4.5);
 
   for (const pickup of state.pickups) {
     if (pickup.availableAt > state.elapsed || (pickup.kind === 'item' && racer.item)) continue;
@@ -421,6 +593,9 @@ export function stepRace(state: RaceState, inputs: Record<string, InputState>, d
     state.elapsed += step;
     for (const racer of state.racers)
       advanceRacer(state, racer, inputs[racer.id] ?? EMPTY_INPUT, step, runtime);
+    resolveKartCollisions(state, runtime);
+    for (const racer of state.racers)
+      constrainToRoad(state, racer, runtime.racers.get(racer.id)!, step);
     rankRacers(state);
     if (state.elapsed >= MAX_RACE_SECONDS) {
       for (const racer of state.racers) {

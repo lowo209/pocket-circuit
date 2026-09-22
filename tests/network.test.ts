@@ -140,6 +140,13 @@ test('client rejects malformed snapshots and stale race ids across consecutive r
   broken.racers[0].x = Infinity;
   receive({ v: 1, type: 'race', state: broken });
   assert.equal(h.races.length, 0);
+  const badImpact = structuredClone(state);
+  badImpact.racers[0].impact = 3;
+  receive({ v: 1, type: 'race', state: badImpact });
+  const badSteering = structuredClone(state);
+  badSteering.racers[0].steering = NaN;
+  receive({ v: 1, type: 'race', state: badSteering });
+  assert.equal(h.races.length, 0);
   receive({ v: 1, type: 'race', state });
   receive({ v: 1, type: 'race', state: { ...state, id: 'stale-race' } });
   assert.equal(h.races.length, 1);

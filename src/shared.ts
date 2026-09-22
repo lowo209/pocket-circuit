@@ -1,6 +1,11 @@
 export type TrackId = 'coast' | 'canyon' | 'midnight';
 export type ItemKind = 'boost' | 'shield' | 'pulse';
 export type Phase = 'countdown' | 'racing' | 'finished';
+export const TRACK_WEATHER: Record<TrackId, string> = {
+  coast: 'Goldene Stunde',
+  canyon: 'Staubiger Wind',
+  midnight: 'Regen bei Nacht',
+};
 export interface Track {
   id: TrackId;
   name: string;
@@ -195,6 +200,10 @@ export interface Racer {
   driftCharge: number;
   drifting: boolean;
   coins: number;
+  /** Short collision impulse for visual suspension, sparks and camera feedback. */
+  impact?: number;
+  /** Smoothed front-wheel steering in [-1, 1]. */
+  steering?: number;
 }
 export interface RaceState {
   id: string;

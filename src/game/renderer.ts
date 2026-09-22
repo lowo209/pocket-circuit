@@ -1,7 +1,12 @@
 import * as THREE from 'three';
-import { getSkin, getTrack } from '../shared';
+import { getTrack } from '../shared';
 import type { RaceState, TrackId, TrackSample } from '../shared';
 import { sampleTrack, trackLength, trackSamples } from './simulation';
+import { makeKart, updateKartVisual, KartParticles } from './kartVisuals';
+import type { KartMotion } from './kartVisuals';
+import { RaceEnvironment } from './environment';
+import type { GraphicsQuality } from './environment';
+export { makeKart } from './kartVisuals';
 
 const TAU = Math.PI * 2;
 
@@ -109,99 +114,15 @@ function part(
   return mesh;
 }
 
-export function makeKart(skinId: string): THREE.Group {
-  const skin = getSkin(skinId);
-  const root = new THREE.Group();
-  const paint = standard(skin.color, 0.3);
-  const accent = standard(skin.accent, 0.55);
-  const black = standard('#202832');
-  const tire = standard('#232c31');
-  const silver = standard('#ccd8d9', 0.27);
-  const cream = standard('#fff6df', 0.4);
-  const cube = new THREE.BoxGeometry(1, 1, 1);
-  const ball = new THREE.SphereGeometry(1, 12, 8);
-  part(root, cube, black, [0, 0.5, 0], [2.35, 0.22, 3.25]);
-  part(root, cube, paint, [0, 0.79, 0.12], [1.85, 0.58, 2.55]);
-  part(root, cube, paint, [0, 0.95, 1.02], [1.58, 0.45, 1.3]);
-  part(root, cube, accent, [0, 1.19, 1.03], [0.38, 0.035, 1.2]);
-  part(root, cube, silver, [0, 0.57, 1.68], [2.52, 0.22, 0.24]);
-  part(root, cube, black, [0, 0.58, -1.6], [2.25, 0.22, 0.24]);
-  part(root, cube, paint, [-0.94, 1.05, -0.75], [0.27, 0.15, 1.7]);
-  part(root, cube, paint, [0.94, 1.05, -0.75], [0.27, 0.15, 1.7]);
-  part(root, cube, black, [0, 1.1, -0.46], [1.05, 0.38, 0.93]);
-  part(root, cube, black, [0, 1.44, -0.85], [1.08, 0.85, 0.25]);
-  part(root, cube, accent, [0, 1.52, -0.25], [0.88, 0.8, 0.55]);
-  const head = part(root, ball, cream, [0, 2.18, -0.19], [0.61, 0.63, 0.58]);
-  head.name = 'helmet';
-  part(root, ball, paint, [0, 2.32, -0.24], [0.62, 0.51, 0.57]);
-  part(root, ball, standard('#203b49', 0.12), [0, 2.16, 0.23], [0.49, 0.25, 0.2]);
-  part(root, cube, cream, [-0.5, 1.58, 0.22], [0.25, 0.24, 0.7]).rotation.x = -0.24;
-  part(root, cube, cream, [0.5, 1.58, 0.22], [0.25, 0.24, 0.7]).rotation.x = -0.24;
-  const steering = part(root, new THREE.TorusGeometry(0.31, 0.045, 6, 12), black, [0, 1.49, 0.64]);
-  steering.rotation.x = -Math.PI / 3;
-  for (const x of [-1.13, 1.13])
-    for (const z of [-1.03, 1.03]) {
-      const wheel = new THREE.Group();
-      wheel.position.set(x, 0.52, z);
-      const rubber = part(wheel, new THREE.CylinderGeometry(0.53, 0.53, 0.43, 12), tire, [0, 0, 0]);
-      rubber.rotation.z = Math.PI / 2;
-      const hub = part(wheel, new THREE.CylinderGeometry(0.25, 0.25, 0.455, 8), silver, [0, 0, 0]);
-      hub.rotation.z = Math.PI / 2;
-      const hubcap = part(
-        wheel,
-        new THREE.CylinderGeometry(0.11, 0.11, 0.465, 8),
-        paint,
-        [0, 0, 0],
-      );
-      hubcap.rotation.z = Math.PI / 2;
-      wheel.name = `wheel-${x}-${z}`;
-      root.add(wheel);
-    }
-  const spoiler = part(root, cube, paint, [0, 1.38, -1.48], [2.4, 0.13, 0.54]);
-  spoiler.rotation.x = -0.12;
-  part(root, cube, black, [-0.65, 1.08, -1.46], [0.13, 0.5, 0.14]);
-  part(root, cube, black, [0.65, 1.08, -1.46], [0.13, 0.5, 0.14]);
-  for (const x of [-0.54, 0.54]) {
-    part(
-      root,
-      cube,
-      new THREE.MeshStandardMaterial({
-        color: '#fff8ce',
-        emissive: '#fff1a6',
-        emissiveIntensity: 0.3,
-      }),
-      [x, 0.91, 1.68],
-      [0.39, 0.17, 0.05],
-    );
-    const exhaust = part(root, new THREE.CylinderGeometry(0.14, 0.14, 0.38, 8), silver, [
-      x,
-      0.58,
-      -1.71,
-    ]);
-    exhaust.rotation.x = Math.PI / 2;
-  }
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(1, 24),
-    new THREE.MeshBasicMaterial({
-      color: '#10242b',
-      transparent: true,
-      opacity: 0.17,
-      depthWrite: false,
-    }),
-  );
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.scale.set(1.62, 2.15, 1);
-  shadow.position.y = 0.027;
-  root.add(shadow);
-  root.userData.skin = skinId;
-  return root;
-}
-
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
   root.traverse((object) => {
-    if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+    if (
+      object instanceof THREE.Mesh ||
+      object instanceof THREE.Line ||
+      object instanceof THREE.Points
+    ) {
       geometries.add(object.geometry);
       const list = Array.isArray(object.material) ? object.material : [object.material];
       list.forEach((material: THREE.Material) => materials.add(material));
@@ -227,12 +148,36 @@ export class KartRenderer {
   private observer: ResizeObserver;
   private trackId: TrackId;
   private time = 0;
+  private weatherRaceId: string | null = null;
+  private weatherClock = 0;
   private cameraStarted = false;
   private mode: 'race' | 'attract' = 'attract';
   private raceId: string | null = null;
   private lookAt = new THREE.Vector3();
   private cameraTarget = new THREE.Vector3();
+  private cameraPosition = new THREE.Vector3();
+  private lookTarget = new THREE.Vector3();
+  private anchor = new THREE.Vector3();
+  private quality: GraphicsQuality = window.innerWidth < 900 ? 'balanced' : 'high';
+  private environment: RaceEnvironment | null = null;
+  private particles: KartParticles;
+  private cameraHeading = 0;
+  private cameraImpact = 0;
+  private previousImpact = 0;
+  private frameHeight = 600;
+  private previewMotion: KartMotion = {
+    speed: 3.5,
+    heading: 0,
+    steering: 0,
+    impact: 0,
+    boost: 0,
+    shield: 0,
+    stun: 0,
+    drifting: false,
+    driftCharge: 0,
+  };
   private sun: THREE.DirectionalLight;
+  private rimLight: THREE.DirectionalLight;
   private hemisphere: THREE.HemisphereLight;
   private reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   private disposed = false;
@@ -269,19 +214,31 @@ export class KartRenderer {
     this.sun.shadow.camera.far = 260;
     this.sun.shadow.normalBias = 0.035;
     this.sun.shadow.bias = -0.00015;
-    this.scene.add(this.hemisphere, this.sun, this.sun.target, this.world);
+    this.rimLight = new THREE.DirectionalLight('#b9dbef', 0.22);
+    this.rimLight.position.set(85, 60, 70);
+    this.scene.add(
+      this.hemisphere,
+      this.sun,
+      this.sun.target,
+      this.rimLight,
+      this.rimLight.target,
+      this.world,
+    );
+    this.particles = new KartParticles(this.scene);
     this.attract = makeKart('lime');
     this.attract.scale.setScalar(1.4);
     this.scene.add(this.attract);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(container);
     this.setTrack(trackId);
+    this.setQuality(this.quality);
     this.resize();
   }
 
   private resize() {
     const width = Math.max(this.container.clientWidth, 1);
     const height = Math.max(this.container.clientHeight, 1);
+    this.frameHeight = height * this.renderer.getPixelRatio();
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
@@ -301,6 +258,10 @@ export class KartRenderer {
   }
 
   setTrack(trackId: TrackId) {
+    if (this.environment && this.trackId === trackId) return;
+    this.environment?.dispose();
+    this.environment = null;
+    this.particles.clear();
     this.trackId = trackId;
     disposeObject(this.world);
     this.world.clear();
@@ -312,11 +273,30 @@ export class KartRenderer {
     this.scene.fog = new THREE.Fog(track.sky, night ? 130 : 210, night ? 420 : 660);
     this.hemisphere.color.set(night ? '#9ab6ff' : '#e1fbff');
     this.hemisphere.groundColor.set(night ? '#3d285a' : '#bd9871');
-    this.hemisphere.intensity = night ? 1.75 : 2.6;
-    this.sun.color.set(night ? '#a2b9ff' : '#fff2cf');
-    this.sun.intensity = night ? 1.9 : 3.1;
-    this.renderer.toneMappingExposure = night ? 1.25 : 1.08;
+    this.hemisphere.intensity = night ? 1.45 : 1.2;
+    this.sun.color.set(night ? '#b0c8ff' : trackId === 'coast' ? '#ffd2a0' : '#ffe0b4');
+    this.sun.intensity = night ? 1.25 : 2.2;
+    this.rimLight.color.set(night ? '#bc87f2' : '#b9dbef');
+    this.rimLight.intensity = night ? 0.65 : 0.22;
+    this.renderer.toneMappingExposure = night ? 1.18 : 1.02;
     this.buildWorld();
+    this.environment = new RaceEnvironment(this.renderer, this.scene, this.world, trackId);
+    this.environment.setQuality(this.quality);
+  }
+
+  setQuality(quality: GraphicsQuality) {
+    this.quality = quality;
+    const high = quality === 'high';
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : 1.2));
+    const resolution = high ? 2048 : 1024;
+    if (this.sun.shadow.mapSize.x !== resolution) {
+      this.sun.shadow.mapSize.set(resolution, resolution);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+      this.sun.shadow.needsUpdate = true;
+    }
+    this.environment?.setQuality(quality);
+    this.resize();
   }
 
   private ribbon(samples: TrackSample[], offset: number, width: number, color: string, y: number) {
@@ -344,6 +324,7 @@ export class KartRenderer {
     const material = standard(color);
     material.side = THREE.DoubleSide;
     const road = new THREE.Mesh(geometry, material);
+    if (offset === 0 && y === 0.035) road.name = 'asphalt';
     road.receiveShadow = true;
     this.world.add(road);
   }
@@ -759,11 +740,20 @@ export class KartRenderer {
     if (newMode !== this.mode) {
       this.cameraStarted = false;
       this.mode = newMode;
+      this.cameraImpact = this.previousImpact = 0;
+      this.particles.clear();
     }
     if (state && state.id !== this.raceId) {
       this.raceId = state.id;
       this.cameraStarted = false;
-      for (const kart of this.racers.values()) kart.userData.positioned = false;
+      this.cameraImpact = this.previousImpact = 0;
+      this.particles.clear();
+      for (const kart of this.racers.values()) {
+        kart.userData.positioned = false;
+        kart.userData.rig.initialized = false;
+        kart.userData.rig.suspension = 0;
+        kart.userData.rig.suspensionVelocity = 0;
+      }
     }
     if (state && state.trackId !== this.trackId) this.setTrack(state.trackId);
     this.attract.visible = !state;
@@ -791,74 +781,66 @@ export class KartRenderer {
           kart = makeKart(racer.skin);
           this.racers.set(racer.id, kart);
           this.scene.add(kart);
-          const shield = new THREE.Mesh(
-            new THREE.SphereGeometry(2.1, 16, 12),
-            new THREE.MeshBasicMaterial({
-              color: '#8ceafa',
-              transparent: true,
-              opacity: 0.15,
-              depthWrite: false,
-            }),
-          );
-          shield.position.y = 1.2;
-          shield.name = 'shield';
-          kart.add(shield);
-          const boost = new THREE.Group();
-          boost.name = 'boost';
-          for (const side of [-1, 1]) {
-            const flame = part(
-              boost,
-              new THREE.ConeGeometry(0.28, 2, 7),
-              new THREE.MeshBasicMaterial({ color: '#82dffc' }),
-              [side * 0.54, 0.6, -2.4],
-            );
-            flame.rotation.x = -Math.PI / 2;
-          }
-          kart.add(boost);
-          const sparks = new THREE.Group();
-          sparks.name = 'sparks';
-          const sparkMaterial = new THREE.MeshBasicMaterial({ color: '#7ce5ff' });
-          for (const side of [-1, 1])
-            for (let index = 0; index < 3; index++) {
-              const spark = part(
-                sparks,
-                new THREE.OctahedronGeometry(0.1, 0),
-                sparkMaterial,
-                [side * (1.3 + index * 0.18), 0.15 + index * 0.12, -1.2 - index * 0.4],
-                [1, 1, 2.5],
-              );
-              spark.castShadow = false;
-            }
-          kart.add(sparks);
         }
         kart.visible = true;
-        const smooth = kart.userData.positioned ? 1 - Math.exp(-18 * dt) : 1;
-        kart.position.x += (racer.x - kart.position.x) * smooth;
-        kart.position.z += (racer.z - kart.position.z) * smooth;
-        kart.position.y =
-          0.075 +
-          (racer.stun > 0
-            ? Math.abs(Math.sin(this.time * 25)) * 0.28
-            : Math.sin(this.time * 13) * Math.min(Math.abs(racer.speed) / 400, 0.022));
+        type Snapshot = {
+          fromX: number;
+          fromZ: number;
+          fromHeading: number;
+          x: number;
+          z: number;
+          heading: number;
+          stamp: number;
+          age: number;
+          duration: number;
+        };
+        let snapshot = kart.userData.snapshot as Snapshot | undefined;
+        if (
+          !kart.userData.positioned ||
+          !snapshot ||
+          Math.hypot(racer.x - kart.position.x, racer.z - kart.position.z) > 30
+        ) {
+          kart.position.set(racer.x, 0.075, racer.z);
+          kart.rotation.set(0, racer.heading, 0);
+          snapshot = {
+            fromX: racer.x,
+            fromZ: racer.z,
+            fromHeading: racer.heading,
+            x: racer.x,
+            z: racer.z,
+            heading: racer.heading,
+            stamp: state.elapsed,
+            age: 0,
+            duration: Math.max(dt, 1 / 60),
+          };
+          kart.userData.snapshot = snapshot;
+          kart.userData.positioned = true;
+        } else if (
+          snapshot.stamp !== state.elapsed ||
+          snapshot.x !== racer.x ||
+          snapshot.z !== racer.z
+        ) {
+          snapshot.duration = Math.min(0.1, Math.max(dt, state.elapsed - snapshot.stamp));
+          snapshot.fromX = kart.position.x;
+          snapshot.fromZ = kart.position.z;
+          snapshot.fromHeading = kart.rotation.y;
+          snapshot.x = racer.x;
+          snapshot.z = racer.z;
+          snapshot.heading = racer.heading;
+          snapshot.stamp = state.elapsed;
+          snapshot.age = 0;
+        }
+        snapshot.age += dt;
+        const blend = Math.min(1, snapshot.age / Math.max(snapshot.duration, 0.001));
+        kart.position.x = THREE.MathUtils.lerp(snapshot.fromX, snapshot.x, blend);
+        kart.position.z = THREE.MathUtils.lerp(snapshot.fromZ, snapshot.z, blend);
         const angle = Math.atan2(
-          Math.sin(racer.heading - kart.rotation.y),
-          Math.cos(racer.heading - kart.rotation.y),
+          Math.sin(snapshot.heading - snapshot.fromHeading),
+          Math.cos(snapshot.heading - snapshot.fromHeading),
         );
-        kart.rotation.y += angle * smooth;
-        kart.rotation.z = racer.drifting ? Math.sin(this.time * 5) * 0.035 : 0;
-        kart.userData.positioned = true;
-        kart.getObjectByName('shield')!.visible = racer.shield > 0;
-        const boost = kart.getObjectByName('boost')!;
-        boost.visible = racer.boost > 0;
-        boost.scale.z = 0.8 + Math.sin(this.time * 37) * 0.22;
-        const sparks = kart.getObjectByName('sparks')!;
-        sparks.visible = racer.drifting && Math.abs(racer.speed) > 10;
-        sparks.scale.setScalar(0.9 + Math.sin(this.time * 45) * 0.28);
-        const sparkMaterial = (sparks.children[0] as THREE.Mesh)
-          .material as THREE.MeshBasicMaterial;
-        sparkMaterial.color.set(racer.driftCharge >= 1.2 ? '#ffd35d' : '#7ce5ff');
-        for (const child of kart.children)
-          if (child.name.startsWith('wheel')) child.rotation.x += (racer.speed * dt) / 0.53;
+        kart.rotation.y = snapshot.fromHeading + angle * blend;
+        updateKartVisual(kart, racer, dt, this.time, this.reducedMotion);
+        this.particles.emit(racer, kart, dt, this.trackId, this.reducedMotion);
       }
       const local = state.racers.find((r) => r.id === localId) ?? state.racers[0];
       if (!local) {
@@ -868,7 +850,7 @@ export class KartRenderer {
       const localMesh = this.racers.get(local.id)!;
       x = localMesh.position.x;
       z = localMesh.position.z;
-      heading = local.heading;
+      heading = localMesh.rotation.y;
       speed = local.speed;
       for (const pickup of state.pickups) {
         let object = this.pickups.get(pickup.id);
@@ -884,18 +866,30 @@ export class KartRenderer {
           (pickup.kind === 'coin' ? 1.35 : 1.85) + Math.sin(this.time * 2.7 + pickup.id) * 0.18;
         object.rotation.y += dt * (pickup.kind === 'coin' ? 2.1 : 0.8);
       }
-      const fov = 55 + Math.min(Math.max(speed, 0) / 14, 6) + (local.boost > 0 ? 4 : 0);
+      const fov = this.reducedMotion
+        ? 55
+        : 55 + Math.min(Math.max(speed, 0) / 8, 7) + (local.boost > 0 ? 3 : 0);
       this.camera.fov += (fov - this.camera.fov) * (1 - Math.exp(-4 * dt));
       this.camera.updateProjectionMatrix();
+      if (!this.cameraStarted) this.cameraHeading = heading;
+      else
+        this.cameraHeading +=
+          Math.atan2(
+            Math.sin(heading - this.cameraHeading),
+            Math.cos(heading - this.cameraHeading),
+          ) *
+          (1 - Math.exp(-7 * dt));
+      const cameraSin = Math.sin(this.cameraHeading),
+        cameraCos = Math.cos(this.cameraHeading);
       const followDistance = 11.8 + Math.min(Math.abs(speed) / 60, 1.6);
-      this.cameraTarget.set(
-        x - Math.sin(heading) * followDistance,
-        7.2,
-        z - Math.cos(heading) * followDistance,
-      );
-      const look = new THREE.Vector3(x + Math.sin(heading) * 8, 1.15, z + Math.cos(heading) * 8);
-      if (!this.cameraStarted) this.lookAt.copy(look);
-      else this.lookAt.lerp(look, 1 - Math.exp(-8 * dt));
+      this.cameraTarget.set(x - cameraSin * followDistance, 7.2, z - cameraCos * followDistance);
+      this.lookTarget.set(x + cameraSin * 8, 1.15, z + cameraCos * 8);
+      if (!this.cameraStarted) this.lookAt.copy(this.lookTarget);
+      else this.lookAt.lerp(this.lookTarget, 1 - Math.exp(-8 * dt));
+      const impact = local.impact ?? 0;
+      if (impact > this.previousImpact + 0.04)
+        this.cameraImpact = Math.max(this.cameraImpact, impact * 0.9);
+      this.previousImpact = impact;
     } else {
       for (const kart of this.racers.values()) kart.visible = false;
       for (const pickup of this.pickups.values()) pickup.visible = false;
@@ -906,9 +900,10 @@ export class KartRenderer {
       heading = point.heading;
       this.attract.position.set(x, 0.085, z);
       this.attract.rotation.y = heading;
-      if (!this.reducedMotion)
-        for (const child of this.attract.children)
-          if (child.name.startsWith('wheel')) child.rotation.x += dt * 6;
+      this.previewMotion.heading = heading;
+      this.previewMotion.speed = this.reducedMotion ? 0 : 3.5;
+      this.previewMotion.steering = undefined;
+      updateKartVisual(this.attract, this.previewMotion, dt, this.time, this.reducedMotion);
       // Elevated three-quarter camera leaves generous room for the track and coastline.
       const distance = this.camera.aspect < 1 ? 24 : 18;
       this.cameraTarget.set(
@@ -917,25 +912,54 @@ export class KartRenderer {
         z + Math.cos(heading) * distance - Math.sin(heading) * 12,
       );
       const textSpace = this.camera.aspect > 1.35 ? 7 : 0;
-      const look = new THREE.Vector3(
+      this.lookTarget.set(
         x + Math.sin(heading) * 4 - Math.cos(heading) * textSpace,
         0,
         z + Math.cos(heading) * 4 + Math.sin(heading) * textSpace,
       );
-      if (!this.cameraStarted) this.lookAt.copy(look);
-      else this.lookAt.lerp(look, 1 - Math.exp(-3 * dt));
+      if (!this.cameraStarted) this.lookAt.copy(this.lookTarget);
+      else this.lookAt.lerp(this.lookTarget, 1 - Math.exp(-3 * dt));
       if (Math.abs(this.camera.fov - 43) > 0.1) {
         this.camera.fov = 43;
         this.camera.updateProjectionMatrix();
       }
     }
     if (!this.cameraStarted) {
-      this.camera.position.copy(this.cameraTarget);
+      this.cameraPosition.copy(this.cameraTarget);
       this.cameraStarted = true;
-    } else this.camera.position.lerp(this.cameraTarget, 1 - Math.exp(-(state ? 5.5 : 3) * dt));
+    } else this.cameraPosition.lerp(this.cameraTarget, 1 - Math.exp(-(state ? 6.5 : 3) * dt));
+    this.camera.position.copy(this.cameraPosition);
+    this.cameraImpact *= Math.exp(-10 * dt);
+    if (!this.reducedMotion && this.cameraImpact > 0.005) {
+      this.camera.position.x += Math.sin(this.time * 53) * this.cameraImpact * 0.14;
+      this.camera.position.y += Math.sin(this.time * 67) * this.cameraImpact * 0.09;
+      this.camera.position.z += Math.cos(this.time * 47) * this.cameraImpact * 0.1;
+    }
     this.camera.lookAt(this.lookAt);
-    this.sun.position.set(x - 50, 110, z - 35);
+    this.sun.position.set(x - 60, this.trackId === 'midnight' ? 100 : 76, z - 85);
     this.sun.target.position.set(x, 0, z);
+    this.rimLight.position.set(x + 85, 60, z + 70);
+    this.rimLight.target.position.set(x, 0, z);
+    this.anchor.set(x, 0, z);
+    this.particles.update(dt, this.frameHeight);
+    // Interpolate the visual clock between network snapshots, including the countdown.
+    let weatherTime = this.time;
+    if (state) {
+      const reference = state.elapsed + THREE.MathUtils.clamp(3 - state.countdown, 0, 3);
+      if (this.weatherRaceId !== state.id || Math.abs(reference - this.weatherClock) > 0.5) {
+        this.weatherRaceId = state.id;
+        this.weatherClock = reference;
+      } else {
+        this.weatherClock = Math.min(reference + 0.065, this.weatherClock + dt);
+        if (this.weatherClock < reference) {
+          this.weatherClock += (reference - this.weatherClock) * (1 - Math.exp(-12 * dt));
+        }
+      }
+      weatherTime = this.weatherClock;
+    } else {
+      this.weatherRaceId = null;
+    }
+    this.environment?.update({ dt, time: weatherTime, anchor: this.anchor, speed });
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -943,6 +967,8 @@ export class KartRenderer {
     if (this.disposed) return;
     this.disposed = true;
     this.observer.disconnect();
+    this.environment?.dispose();
+    this.environment = null;
     disposeObject(this.scene);
     this.scene.clear();
     this.racers.clear();

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { KartRenderer } from './game/renderer';
 import { stepRace, trackSamples, trackLength } from './game/simulation';
-import { EMPTY_INPUT, LAPS, getSkin } from './shared';
+import { EMPTY_INPUT, LAPS, TRACK_WEATHER, getSkin } from './shared';
+import type { GraphicsQuality } from './game/environment';
 import type { InputState, RaceState, TrackId } from './shared';
 import type { Multiplayer } from './network';
 import {
@@ -26,6 +27,8 @@ export interface RaceSession {
 interface Props {
   trackId: TrackId;
   skinId: string;
+  quality: GraphicsQuality;
+  onQuality: (quality: GraphicsQuality) => void;
   race: RaceSession | null;
   network: Multiplayer | null;
   remoteInputs: React.RefObject<Record<string, InputState>>;
@@ -35,6 +38,8 @@ interface Props {
 export default function GameSurface({
   trackId,
   skinId,
+  quality,
+  onQuality,
   race,
   network,
   remoteInputs,
@@ -74,6 +79,9 @@ export default function GameSurface({
   useEffect(() => {
     renderer.current?.setSkin(skinId);
   }, [skinId]);
+  useEffect(() => {
+    renderer.current?.setQuality(quality);
+  }, [quality]);
   useEffect(() => {
     setPaused(false);
     pausedRef.current = false;
@@ -326,6 +334,18 @@ export default function GameSurface({
                 <span className="eyebrow">KURZER BOXENSTOPP</span>
                 <h2>{race.online ? 'Rennmenü' : 'Pause.'}</h2>
                 {race.online && <p>Das Online-Rennen läuft weiter.</p>}
+                <p className="weather-info">{TRACK_WEATHER[trackId]}</p>
+                <label className="quality-control pause-quality">
+                  <span>GRAFIKQUALITÄT</span>
+                  <select
+                    aria-label="Grafikqualität im Rennen"
+                    value={quality}
+                    onChange={(e) => onQuality(e.target.value as GraphicsQuality)}
+                  >
+                    <option value="high">Hoch — volle Details</option>
+                    <option value="balanced">Flüssig — weniger GPU-Last</option>
+                  </select>
+                </label>
                 <button
                   className="primary"
                   onClick={() => {

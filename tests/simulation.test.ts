@@ -4,6 +4,8 @@ import { EMPTY_INPUT, LAPS, TRACKS } from '../src/shared';
 import type { InputState, Player } from '../src/shared';
 import {
   createRace,
+  KART_HALF_LENGTH,
+  KART_HALF_WIDTH,
   nearestTrackPoint,
   sampleTrack,
   stepRace,
@@ -36,6 +38,161 @@ test('all three tracks are closed and sample by real distance', () => {
     assert.ok(Math.abs(projected.progress - 120) < 0.01);
     assert.ok(projected.distance < 0.001);
   }
+});
+
+function collisionPair(bot = false) {
+  const state = createRace('coast', [human, { ...human, id: 'second', bot }], false);
+  state.phase = 'racing';
+  state.countdown = 0;
+  state.pickups = [];
+  return state;
+}
+
+function place(
+  state: ReturnType<typeof createRace>,
+  index: number,
+  forward: number,
+  lateral = 0,
+  speed = 0,
+  headingOffset = 0,
+  originProgress = 40,
+) {
+  const road = sampleTrack(state.trackId, originProgress),
+    racer = state.racers[index];
+  racer.x = road.x + Math.sin(road.heading) * forward + Math.cos(road.heading) * lateral;
+  racer.z = road.z + Math.cos(road.heading) * forward - Math.sin(road.heading) * lateral;
+  racer.heading = road.heading + headingOffset;
+  racer.speed = speed;
+  racer.progress = originProgress + forward;
+}
+
+test('rear-end contacts separate karts and transfer a bounded forward impulse', () => {
+  const state = collisionPair();
+  place(state, 0, 0, 0, 25);
+  place(state, 1, 3.3, 0, 8);
+  stepRace(state, {}, 1 / 60);
+  const [rear, front] = state.racers;
+  assert.ok(Math.hypot(rear.x - front.x, rear.z - front.z) >= KART_HALF_LENGTH * 2);
+  assert.ok(rear.speed < 24 && rear.speed > 0);
+  assert.ok(front.speed > 8 && front.speed < 25);
+  assert.ok((rear.impact ?? 0) > 0.3 && (front.impact ?? 0) <= 1);
+});
+
+test('head-on contact bounces gently without intersecting or launching either kart', () => {
+  const state = collisionPair();
+  place(state, 0, 0, 0, 20);
+  place(state, 1, 3.2, 0, 20, Math.PI);
+  stepRace(state, {}, 1 / 60);
+  const [a, b] = state.racers;
+  assert.ok(Math.hypot(a.x - b.x, a.z - b.z) >= KART_HALF_LENGTH * 2);
+  assert.ok(a.speed < 5 && a.speed >= -12);
+  assert.ok(b.speed < 5 && b.speed >= -12);
+  assert.ok((a.impact ?? 0) > 0.9 && (b.impact ?? 0) > 0.9);
+});
+
+test('side contacts separate the kart footprints without manufacturing forward race progress', () => {
+  const state = collisionPair();
+  place(state, 0, -0.05, 0, 0, 0, 0);
+  place(state, 1, -0.05, 2.4, 0, 0, 0);
+  const before = state.racers.map((r) => r.progress);
+  stepRace(state, {}, 1 / 60);
+  const [a, b] = state.racers;
+  assert.ok(Math.hypot(a.x - b.x, a.z - b.z) >= KART_HALF_WIDTH * 2);
+  assert.deepEqual(
+    state.racers.map((r) => r.progress),
+    before,
+  );
+  assert.ok(state.racers.every((r) => r.lap === 1 && !r.finished));
+  assert.ok(state.racers.every((r) => Math.abs(r.speed) < 0.001));
+});
+
+test('AI keeps collision displacement for several frames and then returns smoothly', () => {
+  const state = collisionPair(true);
+  place(state, 0, 0, 1.2);
+  place(state, 1, 0, 2.7);
+  stepRace(state, {}, 1 / 60);
+  const bot = state.racers[1];
+  const displaced = nearestTrackPoint('coast', bot.x, bot.z).lateral;
+  assert.ok(displaced > 3);
+  const impact = bot.impact ?? 0;
+  place(state, 0, 100, -4);
+  stepRace(state, {}, 1 / 60);
+  const next = nearestTrackPoint('coast', bot.x, bot.z).lateral;
+  assert.ok(
+    next > 3 && Math.abs(next - displaced) < 0.2,
+    'AI must not snap back onto its racing line',
+  );
+  advance(state, 1);
+  assert.ok(nearestTrackPoint('coast', bot.x, bot.z).lateral < displaced - 0.5);
+  assert.ok((bot.impact ?? 0) < impact);
+});
+
+test('shield reduces collision movement and feedback without being consumed', () => {
+  const normal = collisionPair(),
+    shielded = collisionPair();
+  for (const state of [normal, shielded]) {
+    place(state, 0, 0, 0, 25);
+    place(state, 1, 3.3, 0, 8);
+  }
+  shielded.racers[1].shield = 6;
+  stepRace(normal, {}, 1 / 60);
+  stepRace(shielded, {}, 1 / 60);
+  assert.ok(shielded.racers[1].speed < normal.racers[1].speed);
+  assert.ok(shielded.racers[1].impact! < normal.racers[1].impact!);
+  assert.ok(shielded.racers[1].shield > 5.9);
+});
+
+test('countdown and finished racers are excluded from physical contacts', () => {
+  const countdown = collisionPair();
+  countdown.phase = 'countdown';
+  countdown.countdown = 2;
+  place(countdown, 0, 0);
+  place(countdown, 1, 0);
+  const x = countdown.racers[0].x,
+    z = countdown.racers[0].z;
+  stepRace(countdown, {}, 1 / 60);
+  assert.equal(countdown.racers[0].x, x);
+  assert.equal(countdown.racers[0].z, z);
+  assert.equal(countdown.racers[0].impact, 0);
+  const finished = collisionPair();
+  place(finished, 0, 0, 0, 10);
+  place(finished, 1, 0);
+  finished.racers[1].finished = true;
+  finished.racers[1].finishTime = 90;
+  const parked = { x: finished.racers[1].x, z: finished.racers[1].z };
+  stepRace(finished, {}, 1 / 60);
+  assert.ok(finished.racers[0].speed > 9.8);
+  assert.equal(finished.racers[0].impact, 0);
+  assert.equal(finished.racers[1].x, parked.x);
+  assert.equal(finished.racers[1].z, parked.z);
+});
+
+test('guardrail collisions keep the kart on the course and create a decaying impact', () => {
+  const state = createRace('coast', [human], false);
+  state.phase = 'racing';
+  state.countdown = 0;
+  state.pickups = [];
+  place(state, 0, 0, 11.45, 20, Math.PI / 2);
+  stepRace(state, {}, 1 / 60);
+  const racer = state.racers[0];
+  assert.ok(nearestTrackPoint('coast', racer.x, racer.z).distance <= 11.52);
+  assert.ok((racer.impact ?? 0) > 0.5);
+  assert.ok(racer.speed < 15);
+  const impact = racer.impact!;
+  place(state, 0, 0);
+  advance(state, 0.5);
+  assert.ok(racer.impact! < impact * 0.1);
+});
+
+test('wheel steering feedback remains normalized and eases back on release', () => {
+  const state = createRace('coast', [human], false);
+  state.phase = 'racing';
+  state.countdown = 0;
+  stepRace(state, { human: { ...EMPTY_INPUT, left: true } }, 0.1);
+  const turn = state.racers[0].steering!;
+  assert.ok(turn < -0.5 && turn >= -1);
+  stepRace(state, {}, 0.1);
+  assert.ok(state.racers[0].steering! > turn && state.racers[0].steering! <= 0);
 });
 
 test('countdown holds all cars, then throttle moves the player forward', () => {
