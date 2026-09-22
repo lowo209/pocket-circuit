@@ -2181,7 +2181,7 @@ footer > span:last-child {
     font-size: 8px;
   }
 }
-@media (pointer: coarse) {
+@media (any-pointer: coarse), (max-width: 800px) {
   .touch-controls {
     position: absolute;
     bottom: 24px;
@@ -2233,7 +2233,7 @@ footer > span:last-child {
     margin-top: 10px;
   }
 }
-@media (pointer: coarse) and (max-width: 430px) {
+@media (max-width: 430px) {
   .touch-controls {
     left: 12px;
     right: 12px;
