@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import {
   buySkin,
+  buyTrail,
   levelFor,
   loadProfile,
   newProfile,
@@ -146,6 +147,25 @@ test('both money and level are required for a purchase', () => {
   assert.equal(buySkin(levelTwo, 'missing-skin'), null);
   assert.equal(richRookie.coins, 1000);
   assert.deepEqual(richRookie.owned, ['lime']);
+});
+
+test('bought trails persist and migrate older profiles without losing skins', () => {
+  const starter = { ...newProfile(), coins: 500 };
+  const bought = buyTrail(starter, 'neon');
+  assert.ok(bought);
+  assert.equal(bought.coins, 300);
+  assert.deepEqual(bought.ownedTrails, ['none', 'neon']);
+  assert.equal(bought.equippedTrail, 'neon');
+  assert.equal(buyTrail(bought, 'neon'), null);
+  assert.equal(buyTrail(starter, 'ember'), null);
+  assert.equal(saveProfile(bought), true);
+  assert.deepEqual(loadProfile(), bought);
+  localStorage.setItem('pocket-circuit.profile.v1', JSON.stringify({ ...starter,
+    ownedTrails: undefined, equippedTrail: undefined }));
+  const migrated = loadProfile();
+  assert.deepEqual(migrated.ownedTrails, ['none']);
+  assert.equal(migrated.equippedTrail, 'none');
+  assert.deepEqual(migrated.owned, ['lime']);
 });
 
 test('corrupt or unavailable browser storage recovers without crashing', () => {

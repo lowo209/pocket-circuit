@@ -68,6 +68,14 @@ test('only host starts/changes map; changing track clears guest readiness', asyn
   assert.equal(started.race?.runtime.version, 1);
 });
 
+test('equipped trail appears in room and authoritative race snapshots', async () => {
+  const h = harness();
+  const host = await h.first.create({ ...hostIdentity, trail: 'neon' }, 'coast', 'host');
+  assert.equal(host.stored.room.players[0].trail, 'neon');
+  const race = await h.first.command(host.membership, { type: 'start' });
+  assert.equal(race.race?.state.racers.find((racer) => racer.id === host.membership.id)?.trail, 'neon');
+});
+
 test('simultaneous instances cannot advance the same race twice', async () => {
   const h = harness();
   const host = await h.first.create(hostIdentity, 'coast', 'host');

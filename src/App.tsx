@@ -19,15 +19,16 @@ import {
   Wifi,
   ArrowLeft,
   CheckCheck,
+  Sparkles,
 } from 'lucide-react';
 import GameSurface from './GameSurface';
 import type { RaceSession } from './GameSurface';
-import { TRACKS, SKINS, TRACK_WEATHER, getTrack, getSkin } from './shared';
+import { TRACKS, SKINS, TRAILS, TRACK_WEATHER, getTrack, getSkin, getTrail } from './shared';
 import type { GraphicsQuality } from './game/environment';
 import type { InputState, RaceState, RoomState, TrackId } from './shared';
 import { createRace, trackSamples } from './game/simulation';
 import { Multiplayer, type ConnectionStatus } from './network';
-import { loadProfile, saveProfile, levelFor, rewardRace, buySkin, formatTime } from './profile';
+import { loadProfile, saveProfile, levelFor, rewardRace, buySkin, buyTrail, formatTime } from './profile';
 import type { Profile } from './profile';
 
 type Page = 'race' | 'garage' | 'career';
@@ -60,7 +61,8 @@ export default function App() {
       race: RaceState;
       localId: string;
     } | null>(null),
-    [viewSkin, setViewSkin] = useState('lime');
+    [viewSkin, setViewSkin] = useState('lime'),
+    [viewTrail, setViewTrail] = useState('none');
   const netRef = useRef<Multiplayer | null>(null),
     profileRef = useRef(profile),
     roomRef = useRef<RoomState | null>(null),
@@ -147,7 +149,7 @@ export default function App() {
     netRef.current = service;
     setNetwork(service);
     try {
-      const player = { name: profile.name.trim() || 'Rookie', skin: profile.equipped };
+      const player = { name: profile.name.trim() || 'Rookie', skin: profile.equipped, trail: profile.equippedTrail };
       if (join) await service.join(joinCode.trim(), player);
       else await service.host(player, track);
     } catch (error) {
@@ -167,7 +169,7 @@ export default function App() {
     inputs.current = {};
     setRace({
       state: createRace(track, [
-        { id: 'local', name: profile.name.trim() || 'Rookie', skin: profile.equipped, ready: true },
+        { id: 'local', name: profile.name.trim() || 'Rookie', skin: profile.equipped, trail: profile.equippedTrail, ready: true },
       ]),
       localId: 'local',
       online: false,
@@ -207,6 +209,17 @@ export default function App() {
     if (updated) {
       setProfile(updated);
       setNotice(`${getSkin(viewSkin).name} gehört jetzt dir!`);
+    }
+  }
+  function selectTrail(id: string) {
+    setViewTrail(id);
+    if (profile.ownedTrails.includes(id)) setProfile((p) => ({ ...p, equippedTrail: id }));
+  }
+  function purchaseTrail() {
+    const updated = buyTrail(profile, viewTrail);
+    if (updated) {
+      setProfile(updated);
+      setNotice(`${getTrail(viewTrail).name} gehört jetzt dir!`);
     }
   }
   async function copyRoom() {
@@ -262,7 +275,10 @@ export default function App() {
                 className={page === id ? 'active' : ''}
                 onClick={() => {
                   setPage(id);
-                  if (id === 'garage') setViewSkin(profile.equipped);
+                  if (id === 'garage') {
+                    setViewSkin(profile.equipped);
+                    setViewTrail(profile.equippedTrail);
+                  }
                 }}
               >
                 <Icon size={16} />
@@ -297,6 +313,7 @@ export default function App() {
           <GameSurface
             trackId={track}
             skinId={page === 'garage' ? viewSkin : profile.equipped}
+            trailId={page === 'garage' ? viewTrail : profile.equippedTrail}
             quality={quality}
             onQuality={setQuality}
             race={race}
@@ -645,9 +662,50 @@ export default function App() {
                 </button>
               )}
             </div>
+            <div className="section-heading trail-heading">
+              <div>
+                <span className="eyebrow">DEIN ANTRIEB / {profile.ownedTrails.length} VON {TRAILS.length}</span>
+                <h2>Deine Spur im Rennen.</h2>
+              </div>
+              <Sparkles size={22} />
+            </div>
+            <div className="trail-grid">
+              {TRAILS.map((trail) => (
+                <button
+                  key={trail.id}
+                  className={`trail-card ${viewTrail === trail.id ? 'selected' : ''}`}
+                  onClick={() => selectTrail(trail.id)}
+                >
+                  <span className="trail-swatch" style={{ '--trail': trail.color } as React.CSSProperties}>
+                    <i /><i /><i /><i />
+                  </span>
+                  <span className="trail-details">
+                    <small>{trail.label}</small>
+                    <b>{trail.name}</b>
+                    <em>{profile.equippedTrail === trail.id ? 'AKTIV' : profile.ownedTrails.includes(trail.id)
+                      ? 'In deiner Garage' : `${trail.price} Münzen · Level ${trail.level}`}</em>
+                  </span>
+                  {profile.ownedTrails.includes(trail.id) ? <Check size={16} /> : <Lock size={16} />}
+                </button>
+              ))}
+            </div>
+            {!profile.ownedTrails.includes(viewTrail) && (
+              <div className="garage-buy">
+                <span>
+                  <b>{getTrail(viewTrail).name}</b>
+                  <p>Schalte diesen Trail frei und zeig ihn deinen Freunden im Rennen.</p>
+                </span>
+                <button className="primary" onClick={purchaseTrail}
+                  disabled={level < getTrail(viewTrail).level || profile.coins < getTrail(viewTrail).price}>
+                  {level < getTrail(viewTrail).level ? `Ab Level ${getTrail(viewTrail).level}`
+                    : profile.coins < getTrail(viewTrail).price ? 'Noch Münzen sammeln' : 'Trail freischalten'}
+                  <Coins size={18} />
+                </button>
+              </div>
+            )}
             {room && (
               <p className="subtle">
-                Der neue Skin gilt im nächsten erstellten oder betretenen Raum.
+                Der neue Skin oder Trail gilt im nächsten erstellten oder betretenen Raum.
               </p>
             )}
           </section>

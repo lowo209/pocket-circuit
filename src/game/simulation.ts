@@ -284,6 +284,7 @@ export function createRace(trackId: TrackId, players: Player[], fillBots = true)
         id: p.id,
         name: p.name,
         skin: p.skin,
+        trail: p.trail ?? 'none',
         bot: !!p.bot,
         x: sample.x + Math.cos(sample.heading) * lane,
         z: sample.z - Math.sin(sample.heading) * lane,

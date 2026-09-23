@@ -1,5 +1,6 @@
 import {
   SKINS,
+  TRAILS,
   type InputState,
   type Player,
   type Racer,
@@ -24,6 +25,9 @@ function track(value: unknown): value is TrackId {
 function skin(value: unknown): value is string {
   return typeof value === 'string' && SKINS.some((s) => s.id === value);
 }
+function trail(value: unknown): value is string {
+  return typeof value === 'string' && TRAILS.some((item) => item.id === value);
+}
 function input(value: unknown): value is InputState {
   return record(value) && INPUT_KEYS.every((key) => typeof value[key] === 'boolean');
 }
@@ -33,6 +37,7 @@ function player(value: unknown): value is Player {
     text(value.id) &&
     text(value.name, 20) &&
     skin(value.skin) &&
+    (value.trail === undefined || trail(value.trail)) &&
     typeof value.ready === 'boolean' &&
     !value.bot
   );
@@ -57,7 +62,8 @@ function room(value: unknown): value is RoomState {
   );
 }
 function racer(value: unknown): value is Racer {
-  if (!record(value) || !text(value.id) || !text(value.name, 20) || !skin(value.skin)) return false;
+  if (!record(value) || !text(value.id) || !text(value.name, 20) || !skin(value.skin) ||
+      (value.trail !== undefined && !trail(value.trail))) return false;
   return (
     [
       'x',

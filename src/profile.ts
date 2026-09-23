@@ -1,4 +1,4 @@
-import { SKINS } from './shared';
+import { SKINS, TRAILS } from './shared';
 import type { RaceState, TrackId } from './shared';
 export interface Profile {
   name: string;
@@ -6,6 +6,8 @@ export interface Profile {
   coins: number;
   owned: string[];
   equipped: string;
+  ownedTrails: string[];
+  equippedTrail: string;
   races: number;
   wins: number;
   bestTimes: Partial<Record<TrackId, number>>;
@@ -18,6 +20,8 @@ export const newProfile = (): Profile => ({
   coins: 120,
   owned: ['lime'],
   equipped: 'lime',
+  ownedTrails: ['none'],
+  equippedTrail: 'none',
   races: 0,
   wins: 0,
   bestTimes: {},
@@ -34,12 +38,18 @@ export function loadProfile(): Profile {
       ? p.owned.filter((s: unknown) => SKINS.some((k) => k.id === s))
       : ['lime'];
     if (!owned.includes('lime')) owned.push('lime');
+    const ownedTrails = Array.isArray(p.ownedTrails)
+      ? p.ownedTrails.filter((id: unknown) => TRAILS.some((trail) => trail.id === id))
+      : ['none'];
+    if (!ownedTrails.includes('none')) ownedTrails.push('none');
     return {
       name: typeof p.name === 'string' ? p.name.slice(0, 18) : 'Rookie',
       xp: n(p.xp),
       coins: n(p.coins, 120),
       owned,
       equipped: owned.includes(p.equipped) ? p.equipped : 'lime',
+      ownedTrails,
+      equippedTrail: ownedTrails.includes(p.equippedTrail) ? p.equippedTrail : 'none',
       races: n(p.races),
       wins: n(p.wins),
       bestTimes: Object.fromEntries(
@@ -99,6 +109,17 @@ export function buySkin(p: Profile, id: string): Profile | null {
   if (!skin || p.owned.includes(id) || p.coins < skin.price || levelFor(p.xp) < skin.level)
     return null;
   return { ...p, coins: p.coins - skin.price, owned: [...p.owned, id], equipped: id };
+}
+export function buyTrail(p: Profile, id: string): Profile | null {
+  const trail = TRAILS.find((candidate) => candidate.id === id);
+  if (!trail || p.ownedTrails.includes(id) || p.coins < trail.price || levelFor(p.xp) < trail.level)
+    return null;
+  return {
+    ...p,
+    coins: p.coins - trail.price,
+    ownedTrails: [...p.ownedTrails, id],
+    equippedTrail: id,
+  };
 }
 export function formatTime(seconds: number | null | undefined) {
   if (seconds == null) return '—';

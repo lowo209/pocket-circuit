@@ -30,6 +30,12 @@ try {
     await page.getByRole('button', { name: new RegExp(name) }).click();
     await page.getByLabel('Grafikqualität', { exact: true }).selectOption('high');
     await page.waitForTimeout(1800);
+    if (track === 'midnight') {
+      const first = await page.locator('.lens-rain').evaluate((canvas) => canvas.toDataURL());
+      await page.waitForTimeout(420);
+      const second = await page.locator('.lens-rain').evaluate((canvas) => canvas.toDataURL());
+      assert.notEqual(second, first, 'Neon Harbor lens droplets visibly animate');
+    }
     await page.screenshot({
       path: fileURLToPath(new URL(`${track}-preview.png`, artifacts)),
       fullPage: true,

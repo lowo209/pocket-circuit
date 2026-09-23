@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { KartRenderer } from './game/renderer';
+import LensRain from './game/LensRain';
 import { stepRace, trackSamples, trackLength } from './game/simulation';
 import { EMPTY_INPUT, LAPS, TRACK_WEATHER, getSkin } from './shared';
 import type { GraphicsQuality } from './game/environment';
@@ -29,6 +30,7 @@ export interface RaceSession {
 interface Props {
   trackId: TrackId;
   skinId: string;
+  trailId: string;
   quality: GraphicsQuality;
   onQuality: (quality: GraphicsQuality) => void;
   race: RaceSession | null;
@@ -40,6 +42,7 @@ interface Props {
 export default function GameSurface({
   trackId,
   skinId,
+  trailId,
   quality,
   onQuality,
   race,
@@ -81,6 +84,9 @@ export default function GameSurface({
   useEffect(() => {
     renderer.current?.setSkin(skinId);
   }, [skinId]);
+  useEffect(() => {
+    renderer.current?.setPreviewTrail(trailId);
+  }, [trailId]);
   useEffect(() => {
     renderer.current?.setQuality(quality);
   }, [quality]);
@@ -213,23 +219,7 @@ export default function GameSurface({
   return (
     <div className={`game-surface ${race ? 'is-racing' : ''}`}>
       <div className="three-canvas" ref={container} />
-      {trackId === 'midnight' && (
-        <div className="lens-rain" aria-hidden="true">
-          {Array.from({ length: 28 }, (_, i) => (
-            <i
-              key={i}
-              style={{
-                left: `${(i * 37 + 13) % 97}%`,
-                top: `${(i * 53 + 7) % 88}%`,
-                width: `${3 + (i % 4) * 2}px`,
-                height: `${5 + (i % 5) * 2}px`,
-                animationDelay: `${-((i * 7) % 19) / 3}s`,
-                animationDuration: `${4 + (i % 6)}s`,
-              }}
-            />
-          ))}
-        </div>
-      )}
+      {trackId === 'midnight' && <LensRain />}
       {error && (
         <div className="webgl-error">
           <b>3D benötigt WebGL</b>

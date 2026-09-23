@@ -68,6 +68,26 @@ try {
   await host.getByRole('button', { name: /Coral Club/ }).click();
   await shot(host, 'garage.png');
   assert.equal(await host.getByRole('button', { name: 'Noch Münzen sammeln' }).isDisabled(), true);
+  await host.evaluate(() => {
+    const key = 'pocket-circuit.profile.v1';
+    const profile = JSON.parse(localStorage.getItem(key));
+    profile.coins = 500;
+    localStorage.setItem(key, JSON.stringify(profile));
+  });
+  await host.reload();
+  await host.getByRole('button', { name: 'Garage', exact: true }).click();
+  await host.getByRole('button', { name: /Neon Wake/ }).click();
+  await host.getByRole('button', { name: 'Trail freischalten' }).click();
+  await host.waitForTimeout(800);
+  await shot(host, 'garage-trail.png');
+  const trailProfile = await host.evaluate(() =>
+    JSON.parse(localStorage.getItem('pocket-circuit.profile.v1')));
+  assert.equal(trailProfile.equippedTrail, 'neon');
+  assert.ok(trailProfile.ownedTrails.includes('neon'));
+  assert.equal(trailProfile.coins, 300);
+  await host.reload();
+  await host.getByRole('button', { name: 'Garage', exact: true }).click();
+  assert.match(await host.getByRole('button', { name: /Neon Wake/ }).innerText(), /AKTIV/);
   await host.getByRole('button', { name: 'Rennen', exact: true }).click();
   await host.getByRole('button', { name: 'Auf die Strecke', exact: true }).click();
   await host.waitForTimeout(3500);
@@ -160,6 +180,7 @@ try {
       checks: [
         'three themes',
         'garage preview and locked purchase',
+        'trail purchase, equip and reload',
         'solo keyboard driving',
         'abort gives no reward',
         'same-origin WebSocket lobby',

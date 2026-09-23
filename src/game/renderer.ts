@@ -162,6 +162,7 @@ export class KartRenderer {
   private quality: GraphicsQuality = window.innerWidth < 900 ? 'balanced' : 'high';
   private environment: RaceEnvironment | null = null;
   private particles: KartParticles;
+  private previewTrail = 'none';
   private cameraHeading = 0;
   private cameraImpact = 0;
   private previousImpact = 0;
@@ -256,6 +257,10 @@ export class KartRenderer {
     disposeObject(this.attract);
     this.attract = replacement;
     this.scene.add(replacement);
+  }
+
+  setPreviewTrail(trailId: string) {
+    this.previewTrail = trailId;
   }
 
   setTrack(trackId: TrackId) {
@@ -909,6 +914,7 @@ export class KartRenderer {
       this.previewMotion.speed = 0;
       this.previewMotion.steering = undefined;
       updateKartVisual(this.attract, this.previewMotion, dt, this.time, this.reducedMotion);
+      this.particles.preview(this.attract, this.previewTrail, dt, this.reducedMotion);
       // Elevated three-quarter camera leaves generous room for the track and coastline.
       const distance = this.camera.aspect < 1 ? 24 : 18;
       const orbit = this.reducedMotion ? 0 : Math.sin(this.time * .13) * 1.2;

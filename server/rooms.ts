@@ -5,7 +5,7 @@ import {
   restoreRaceRuntime,
   stepRace,
 } from '../src/game/simulation.js';
-import { EMPTY_INPUT, SKINS } from '../src/shared.js';
+import { EMPTY_INPUT, SKINS, TRAILS } from '../src/shared.js';
 import type { InputState, TrackId } from '../src/shared.js';
 import type { RoomStore, StoredRoom } from './store.js';
 
@@ -29,6 +29,7 @@ export class ProtocolError extends Error {
 export interface Identity {
   name: string;
   skin: string;
+  trail?: string;
 }
 export interface Membership {
   code: string;
@@ -55,7 +56,10 @@ export function parseIdentity(value: Record<string, unknown>): Identity {
     throw new ProtocolError('Bitte wähle einen Namen mit 1 bis 20 Zeichen.');
   if (typeof value.skin !== 'string' || !SKINS.some((skin) => skin.id === value.skin))
     throw new ProtocolError('Dieser Skin ist nicht verfügbar.');
-  return { name: value.name.trim(), skin: value.skin };
+  if (value.trail !== undefined &&
+      (typeof value.trail !== 'string' || !TRAILS.some((trail) => trail.id === value.trail)))
+    throw new ProtocolError('Dieser Trail ist nicht verfügbar.');
+  return { name: value.name.trim(), skin: value.skin, trail: (value.trail as string | undefined) ?? 'none' };
 }
 
 export function parseCode(value: unknown): string {

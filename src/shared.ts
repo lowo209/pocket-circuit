@@ -190,10 +190,27 @@ export const SKINS: Skin[] = [
     label: 'LEGEND',
   },
 ];
+export interface TrailStyle {
+  id: string;
+  name: string;
+  color: string;
+  price: number;
+  level: number;
+  label: string;
+}
+export const TRAILS: TrailStyle[] = [
+  { id: 'none', name: 'Classic', color: '#aeb8b8', price: 0, level: 1, label: 'Original' },
+  { id: 'neon', name: 'Neon Wake', color: '#60efe6', price: 200, level: 1, label: 'Cyan glow' },
+  { id: 'ember', name: 'Ember Rush', color: '#ff9355', price: 350, level: 2, label: 'Fire sparks' },
+  { id: 'violet', name: 'Night Pulse', color: '#bf8cff', price: 500, level: 3, label: 'Purple glow' },
+  { id: 'rainbow', name: 'Rainbow Road', color: '#ff78c9', price: 750, level: 4, label: 'Color shift' },
+];
+export const getTrail = (id: string) => TRAILS.find((trail) => trail.id === id) ?? TRAILS[0];
 export interface Player {
   id: string;
   name: string;
   skin: string;
+  trail?: string;
   ready: boolean;
   bot?: boolean;
 }
@@ -217,6 +234,7 @@ export interface Racer {
   id: string;
   name: string;
   skin: string;
+  trail?: string;
   bot: boolean;
   x: number;
   z: number;

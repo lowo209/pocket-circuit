@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { getSkin } from '../shared';
+import { getSkin, getTrail } from '../shared';
 import type { Racer, TrackId } from '../shared';
 
 const TAU = Math.PI * 2;
@@ -627,11 +627,15 @@ export class KartParticles {
   readonly root = new THREE.Group();
   private sparks = new ParticlePool(240, true);
   private smoke = new ParticlePool(180, false);
+  private trail = new ParticlePool(400, true);
   private cyan = new THREE.Color('#8bddff');
   private gold = new THREE.Color('#ffb845');
   private dust = new THREE.Color('#bcae92');
   private water = new THREE.Color('#91a7bd');
   private timers = new Map<string, number>();
+  private trailTimers = new Map<string, number>();
+  private trailColor = new THREE.Color();
+  private trailClock = 0;
   private skid: THREE.InstancedMesh;
   private skidOpacity = new Float32Array(300);
   private skidLife = new Float32Array(300);
@@ -639,7 +643,7 @@ export class KartParticles {
   private dummy = new THREE.Object3D();
   private random = 7283;
   constructor(scene: THREE.Scene) {
-    this.root.add(this.sparks.object, this.smoke.object);
+    this.root.add(this.sparks.object, this.smoke.object, this.trail.object);
     const geometry = new THREE.PlaneGeometry(0.21, 1.3);
     geometry.rotateX(-Math.PI / 2);
     geometry.setAttribute(
@@ -670,9 +674,44 @@ export class KartParticles {
     this.random = (Math.imul(this.random, 1664525) + 1013904223) >>> 0;
     return this.random / 4294967296;
   }
+  private emitTrail(id: string, style: string, kart: THREE.Group, dt: number, pace: number, preview = false) {
+    if (style === 'none' || pace < 7) {
+      this.trailTimers.set(id, 0);
+      return;
+    }
+    let timer = (this.trailTimers.get(id) ?? 0) + dt;
+    const sin = Math.sin(kart.rotation.y), cos = Math.cos(kart.rotation.y);
+    let emitted = 0;
+    while (timer >= 0.04 && emitted++ < 3) {
+      timer -= 0.04;
+      for (const side of [-1, 1]) {
+        if (style === 'rainbow')
+          this.trailColor.setHSL((this.trailClock * 0.3 + (side + 1) * 0.16) % 1, 0.9, 0.62);
+        else this.trailColor.set(getTrail(style).color);
+        const lateral = side * 0.53;
+        const rear = -1.95;
+        this.trail.emit(
+          kart.position.x + cos * lateral + sin * rear,
+          0.45,
+          kart.position.z - sin * lateral + cos * rear,
+          -sin * (preview ? 8 : 1.3) + cos * side * 0.22,
+          0.45,
+          -cos * (preview ? 8 : 1.3) - sin * side * 0.22,
+          this.trailColor,
+          style === 'ember' ? 0.85 : preview ? 0.8 : 0.58,
+          preview ? 1.1 : 0.65,
+        );
+      }
+    }
+    this.trailTimers.set(id, timer);
+  }
+  preview(kart: THREE.Group, trail: string, dt: number, reducedMotion: boolean) {
+    if (!reducedMotion) this.emitTrail('preview', trail, kart, dt, 12, true);
+  }
   emit(racer: Racer, kart: THREE.Group, dt: number, track: TrackId, reducedMotion: boolean) {
     if (reducedMotion) return;
     const pace = Math.abs(racer.speed);
+    this.emitTrail(racer.id, racer.trail ?? 'none', kart, dt, pace);
     const active = (racer.drifting && pace > 10) || racer.boost > 0 || (racer.impact ?? 0) > 0.2;
     if (!active) {
       this.timers.set(racer.id, 0);
@@ -731,8 +770,10 @@ export class KartParticles {
     this.timers.set(racer.id, timer);
   }
   update(dt: number, height: number) {
+    this.trailClock += dt;
     this.sparks.update(dt, height);
     this.smoke.update(dt, height);
+    this.trail.update(dt, height);
     for (let i = 0; i < 300; i++) {
       this.skidLife[i] = Math.max(0, this.skidLife[i] - dt);
       this.skidOpacity[i] = Math.min(this.skidLife[i], 1) * 0.2;
@@ -743,7 +784,9 @@ export class KartParticles {
   clear() {
     this.sparks.clear();
     this.smoke.clear();
+    this.trail.clear();
     this.skidLife.fill(0);
     this.timers.clear();
+    this.trailTimers.clear();
   }
 }
