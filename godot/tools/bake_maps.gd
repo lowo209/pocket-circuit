@@ -15,6 +15,10 @@ func bake() -> void:
 		world.name = ["SunsetBay","DustValley","NEONCity"][i]
 		root.add_child(world)
 		world.build(course)
+		if not world.has_node("TrackSurface") or not world.has_node(["OceanCauseway","PyramidTemple","SkyTraffic"][i]):
+			push_error("Map generation incomplete; refusing to save this scene")
+			quit(1)
+			return
 		set_owners(world,world)
 		var packed := PackedScene.new()
 		var result := packed.pack(world)

@@ -4,7 +4,7 @@ $projectDirectory = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $engineExecutable = (Resolve-Path -LiteralPath $Godot).Path
 Push-Location $projectDirectory
 try {
-    New-Item -ItemType Directory -Force -Path 'builds/PocketCircuit_v0.3.0-dev' | Out-Null
+    New-Item -ItemType Directory -Force -Path 'builds/PocketCircuit_v0.4.0-dev' | Out-Null
     function Run-Godot([string]$Arguments, [string]$Log) {
         $process = Start-Process -FilePath $engineExecutable -ArgumentList $Arguments -WindowStyle Hidden -PassThru
         $deadline = (Get-Date).AddMinutes(2)
@@ -27,7 +27,7 @@ try {
         if (-not (Select-String -Path "builds/physics-$track.log" -SimpleMatch 'LIVE PHYSICS TEST: PASS')) { throw "Track $track did not complete." }
     }
     Run-Godot '--headless --path . --export-release "Windows Desktop" --log-file builds/export.log' 'builds/export.log'
-    $exported = Join-Path $projectDirectory 'builds/PocketCircuit_v0.3.0-dev/PocketCircuit.exe'
+    $exported = Join-Path $projectDirectory 'builds/PocketCircuit_v0.4.0-dev/PocketCircuit.exe'
     $exportCheck = Start-Process -FilePath $exported -ArgumentList '--headless --log-file ../export-check.log -- --autoplay-test' -WorkingDirectory (Split-Path $exported) -WindowStyle Hidden -PassThru
     $deadline = (Get-Date).AddMinutes(2)
     while (-not $exportCheck.WaitForExit(1000)) {
@@ -35,10 +35,10 @@ try {
     }
     if ($exportCheck.ExitCode -ne 0) { throw 'Exported game failed its race test.' }
     if (-not (Select-String -Path 'builds/export-check.log' -SimpleMatch 'LIVE PHYSICS TEST: PASS')) { throw 'Exported game did not complete its test.' }
-    Copy-Item -LiteralPath 'tools/PLAYER_README.txt' -Destination 'builds/PocketCircuit_v0.3.0-dev/README.txt'
-    Copy-Item -LiteralPath 'tools/GODOT_LICENSE.txt' -Destination 'builds/PocketCircuit_v0.3.0-dev/GODOT_LICENSE.txt'
-    Compress-Archive -Path 'builds/PocketCircuit_v0.3.0-dev/*' -DestinationPath 'builds/PocketCircuit_v0.3.0-dev.zip' -Force
-    Write-Output "Built: $projectDirectory\builds\PocketCircuit_v0.3.0-dev.zip"
+    Copy-Item -LiteralPath 'tools/PLAYER_README.txt' -Destination 'builds/PocketCircuit_v0.4.0-dev/README.txt'
+    Copy-Item -LiteralPath 'tools/GODOT_LICENSE.txt' -Destination 'builds/PocketCircuit_v0.4.0-dev/GODOT_LICENSE.txt'
+    Compress-Archive -Path 'builds/PocketCircuit_v0.4.0-dev/*' -DestinationPath 'builds/PocketCircuit_v0.4.0-dev.zip' -Force
+    Write-Output "Built: $projectDirectory\builds\PocketCircuit_v0.4.0-dev.zip"
 } finally {
     Pop-Location
 }

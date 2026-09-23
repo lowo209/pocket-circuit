@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0-dev — 2026-09-23
+
+- Overhauled all maps with layered scenery and extended terrain instead of exposed rectangular world edges. Shared conservative footprint placement keeps independently placed buildings and props apart and away from the race corridor.
+- Sunset Bay: sculpted coastline, supported over-water causeway, sea stacks, offshore islands, sailboats, village gardens and inland headlands. The road now has an upward-facing collision mesh, including every offshore sample.
+- Dust Valley: three layers of distant dune ridges, roadside rock formations, warm dust haze, drifting sand and a drive-through stepped stone pyramid with portal roofs, masonry courses and interior lights. Sand particles stop inside the passage.
+- NEON City: deeper city blocks, roof details, foundations, sidewalks, terminals and bins; 18 animated air taxis follow the clear street canyon above crossings. Existing wet-road reflections and rain remain.
+- Added physical road-support, independent scenery-footprint and traffic-motion regressions; expanded rendered preview captures to landmarks across every map.
+
 ## 0.3.0-dev — 2026-09-23
 
 - Replaced Neon Harbor scenery with NEON City: illuminated tower blocks, original storefront signs, elevated crossings, skyline and cyan/magenta road lighting. The legacy scene filename remains stable for existing editor references.

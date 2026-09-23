@@ -31,6 +31,28 @@ func run_checks() -> void:
 		var course = load("res://scripts/course.gd").new(track_id)
 		var packed: PackedScene = load(["res://maps/sunset_bay.tscn","res://maps/dust_valley.tscn","res://maps/neon_harbor.tscn"][track_id])
 		var map := packed.instantiate()
+		root.add_child(map)
+		await physics_frame
+		await physics_frame
+		var road := map.get_node("TrackSurface") as MeshInstance3D
+		var normals: PackedVector3Array = road.mesh.surface_get_arrays(0)[Mesh.ARRAY_NORMAL]
+		for normal in normals: assert(normal.y>0.99,"Road faces must point upward for bridge collision")
+		var footprints: Array = map.get_meta("scenery_footprints",[])
+		assert(footprints.size()>40,"Each map needs layered roadside scenery")
+		for a in footprints.size():
+			for b in range(a+1,footprints.size()):
+				assert(Vector2(footprints[a].x,footprints[a].y).distance_to(Vector2(footprints[b].x,footprints[b].y))>=footprints[a].z+footprints[b].z+1.9,"Independent scenery footprints may not overlap")
+		for i in course.COUNT:
+			var p: Vector3 = course.point(i)
+			var query := PhysicsRayQueryParameters3D.create(p+Vector3.UP*0.5,p-Vector3.UP*0.5,1)
+			var hit := root.get_world_3d().direct_space_state.intersect_ray(query)
+			assert(not hit.is_empty(),"Every road sample must have physical support")
+		if track_id==0:
+			assert(map.has_node("OceanCauseway"))
+			assert(map.find_children("OceanBridgePier*","MeshInstance3D",false).size()>10)
+		elif track_id==1:
+			assert(map.has_node("PyramidTemple"))
+			assert(map.has_node("Sandstorm"))
 		for side in [-1,1]:
 			var curb := map.get_node("ContinuousCurbLeft" if side<0 else "ContinuousCurbRight") as MeshInstance3D
 			var vertices: PackedVector3Array = curb.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
@@ -43,6 +65,13 @@ func run_checks() -> void:
 				assert(vertices[i*12].distance_to(edge)<0.0001,"Curb must follow road edge")
 		assert(map.get_node("WorldReflection") is ReflectionProbe)
 		if track_id==2:
+			var traffic := map.get_node("SkyTraffic")
+			assert(traffic.get_child_count()==18)
+			traffic.update_traffic(0)
+			var before: Vector3 = traffic.get_child(0).position
+			traffic.update_traffic(1)
+			assert(before.distance_to(traffic.get_child(0).position)>5,"Air taxis must move")
+			for car in traffic.get_children(): assert(car.position.y>=19,"Flight lanes must clear gantries and bridges")
 			assert(course.TITLES[2]=="NEON City")
 			assert(map.get_node("RoadSplashes") is CPUParticles3D)
 			assert(map.get_node("Rain") is CPUParticles3D)
@@ -59,5 +88,5 @@ func run_checks() -> void:
 	restored.load_save("user://city_settings_test.json")
 	assert(not restored.lens_rain,"Camera rain preference must persist")
 	DirAccess.remove_absolute("user://city_settings_test.json")
-	print("VISUAL REGRESSIONS: PASS (three closed curb loops, wheel axle/roll/reverse/steering, probes)")
+	print("VISUAL REGRESSIONS: PASS (curbs, wheels, road support, nonoverlapping scenery, weather, moving air taxis)")
 	quit()

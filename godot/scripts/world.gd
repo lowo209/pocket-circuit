@@ -102,43 +102,21 @@ func build(track) -> void:
 	night = course.track_id == 2
 	rng.seed = 912 + course.track_id
 	setup_environment()
-	var ground_color: String = ["c8b691","bc8054","576577"][course.track_id]
-	box(Vector3(360,1,420), Vector3(45,-0.62,-5), mat(ground_color,0.95,"sand"),true,"Terrain")
-	if course.track_id == 0:
-		var water := ShaderMaterial.new()
-		water.shader = load("res://shaders/water.gdshader")
-		water.set_shader_parameter("water_color", Color("132b42") if night else Color("286a7d"))
-		box(Vector3(1600,0.15,1600),Vector3(0,-1.4,0),water,false,"Ocean")
+	var detail = load("res://scripts/map_detail.gd").new(self,course)
+	detail.terrain()
 	build_road()
 	build_paddock()
-	for i in range(0, 0 if night else course.COUNT, 4):
-		var p: Vector3 = course.point(i)
-		var right: Vector3 = course.side(i)
-		for sign in [-1, 1]:
-			var pos: Vector3 = p + right * (18 + rng.randf_range(0,8)) * sign
-			if pos.distance_to(course.hub_position()) < 24: continue
-			if pos.distance_to(course.point(course.nearest(pos))) < 16: continue
-			if course.track_id == 0:
-				if i % 8 == 0: palm(pos)
-				elif sign < 0: building(pos, i)
-				else: rock(pos, Vector3(6,3,5), "a89679")
-			elif course.track_id == 1:
-				rock(pos, Vector3(rng.randf_range(8,16),rng.randf_range(8,22),rng.randf_range(8,15)), "b07449")
-				if i % 12 == 0: cactus(pos + right * 5)
-			else:
-				if sign < 0: container_stack(pos, i)
-				else: building(pos, i)
 	for i in range(0, course.COUNT, 8):
+		if course.track_id==1 and i<16: continue
 		lamp(course.point(i) + course.side(i) * 10)
 	if course.track_id == 0:
-		lighthouse(course.point(42) + course.side(42) * 30)
-		for i in 10: rock(Vector3(175 + i*8, -0.2, -160+i*30), Vector3(20,8,18), "97967f")
+		detail.beach()
 	elif course.track_id == 1:
-		for i in [36,91,128]: canyon_arch(i)
-		for i in 14: rock(Vector3(-195+i*30,0,-190),Vector3(22,28+rng.randf()*35,25),"825d49")
+		detail.desert()
 	else:
-		load("res://scripts/neon_city.gd").build(self,course)
+		load("res://scripts/neon_city.gd").build(self,course,detail)
 		add_rain()
+	set_meta("scenery_footprints",detail.footprints)
 	add_reflections()
 
 func add_reflections() -> void:
@@ -179,6 +157,14 @@ func setup_environment() -> void:
 	env.fog_enabled = true
 	env.fog_light_color = Color("1a3049") if night else Color("b6c5d1")
 	env.fog_density = 0.0008 if night else 0.00045
+	if course.track_id == 1:
+		sky_mat.sky_top_color = Color("8a9d9f")
+		sky_mat.sky_horizon_color = Color("c5b294")
+		sky_mat.ground_horizon_color = Color("c5b294")
+		env.fog_light_color = Color("bea47e")
+		env.fog_density = 0.0025
+	elif night:
+		env.fog_density = 0.0018
 	node.environment = env
 	add_child(node)
 	sun = DirectionalLight3D.new()
@@ -200,7 +186,7 @@ func build_road() -> void:
 		var b: Vector3 = course.point(i+1)
 		var corners := [a-course.side(i)*7.5,b-course.side(i+1)*7.5,b+course.side(i+1)*7.5,a+course.side(i)*7.5]
 		var uvs := [Vector2(0,i*0.7),Vector2(0,(i+1)*0.7),Vector2(3,(i+1)*0.7),Vector2(3,i*0.7)]
-		for v in [0,2,1,0,3,2]:
+		for v in [0,1,2,0,2,3]:
 			surface.set_uv(uvs[v])
 			surface.add_vertex(corners[v]+Vector3.UP*0.02)
 		var midpoint := (a+b)*0.5
@@ -221,7 +207,8 @@ func build_road() -> void:
 	asphalt.shader = load("res://shaders/asphalt.gdshader")
 	asphalt.set_shader_parameter("albedo_texture",load("res://textures/asphalt.png"))
 	asphalt.set_shader_parameter("wetness",0.98 if night else 0.0)
-	mesh_object(surface.commit(),Vector3.ZERO,asphalt,"TrackSurface")
+	var road := mesh_object(surface.commit(),Vector3.ZERO,asphalt,"TrackSurface")
+	road.create_trimesh_collision()
 	for side in [-1,1]: build_curb(side)
 
 func curb_section(index: int, side: int) -> Array[Vector3]:
@@ -276,12 +263,25 @@ func rock(pos: Vector3, size: Vector3, color: String) -> void:
 	node.rotation.y = rng.randf()*TAU
 
 func palm(pos: Vector3) -> void:
-	var trunk := cylinder(pos+Vector3.UP*4,0.35,8,mat("746249",1,"wood"),0.18,"PalmTrunk")
-	trunk.rotation.z = 0.12
-	for i in 7:
-		var leaf := box(Vector3(0.7,0.08,5),pos+Vector3.UP*8,mat("506c41"),false,"PalmFrond")
-		leaf.rotation = Vector3(0.22,i*TAU/7,0)
-		leaf.position += leaf.basis.z*1.8
+	cylinder(pos+Vector3.UP*4,0.32,8,mat("746249",1,"wood"),0.15,"PalmTrunk")
+	var canopy := SurfaceTool.new()
+	canopy.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 9:
+		var direction := Vector3(cos(i*TAU/9),0,sin(i*TAU/9))
+		var side := direction.cross(Vector3.UP)
+		for segment in 12:
+			var rings: Array[Vector3] = []
+			for j in [segment,segment+1]:
+				var t := float(j)/12
+				var center := direction*(t*4.7)+Vector3.UP*(8+1.5*sin(t*PI)-t*2.2)
+				var width := sin(t*PI)*0.5*(1.0 if j%2==0 else 0.68)
+				rings.append(center-side*width)
+				rings.append(center+side*width)
+			for v in [0,1,3,0,3,2]: canopy.add_vertex(rings[v])
+	canopy.generate_normals()
+	var leaves := mat("466745",0.9).duplicate() as StandardMaterial3D
+	leaves.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh_object(canopy.commit(),pos,leaves,"PalmCanopy")
 
 func building(pos: Vector3, index: int) -> void:
 	var height := rng.randf_range(7,17) if night else rng.randf_range(4,8)
@@ -303,6 +303,7 @@ func building(pos: Vector3, index: int) -> void:
 	if night: box(Vector3(10.1,0.12,0.12),pos+Vector3(0,height-0.8,-4.1),glowing("e67cbd"),false,"NeonTrim")
 
 func lighthouse(pos: Vector3) -> void:
+	cylinder(pos+Vector3.UP*0.2,3.7,1.2,mat("918e80",0.95,"rock"),3.7,"LighthouseFoundation")
 	for i in 5: cylinder(pos+Vector3.UP*(2+i*3),3.2-i*0.2,3,mat("dfd6c4" if i%2==0 else "b6634a",0.9,"plaster"),2.9-i*0.2,"Lighthouse")
 	cylinder(pos+Vector3.UP*16,2.6,2,mat("324452",0.3),-1,"LanternRoom")
 	cylinder(pos+Vector3.UP*17.5,3.1,1,mat("43525a"),0,"Roof")
@@ -397,6 +398,8 @@ func set_quality(level: int) -> void:
 	if rain: rain.amount = [250,600,1000,1400][level]
 	var splashes := get_node_or_null("RoadSplashes") as CPUParticles3D
 	if splashes: splashes.amount = [20,40,70,100][level]
+	var sand := get_node_or_null("Sandstorm") as CPUParticles3D
+	if sand: sand.amount = [120,260,420,600][level]
 	for probe_name in ["WorldReflection","PaddockReflection"]:
 		var probe := get_node_or_null(probe_name) as ReflectionProbe
 		if probe: probe.visible = level > 0

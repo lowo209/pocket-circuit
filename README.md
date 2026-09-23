@@ -1,6 +1,6 @@
 # Pocket Circuit 🏁
 
-> **Standalone Godot rebuild in development:** the new Windows/GDScript project lives in [`godot/`](godot/README.md). Its v0.3 development preview adds NEON City, rainy wet-road materials, camera droplets, a closer chase camera and shared boost pads to three editable tracks with solo races and adaptive opponents. The web version documented below remains the original prototype; the standalone build is not yet an official stable release.
+> **Standalone Godot rebuild in development:** the new Windows/GDScript project lives in [`godot/`](godot/README.md). Its v0.4 development preview overhauls all three environments: an ocean causeway, a drive-through desert pyramid with drifting sand, and a dense cyberpunk NEON City with moving air taxis. Solo races, adaptive opponents and editable maps remain included. The web version documented below remains the original prototype; the standalone build is not yet an official stable release.
 
 Ein eigenständiger 3D-Kart-Racer für den Browser: private Multiplayer-Räume, drei Strecken, Drift-Boosts, Items und freischaltbare Skins. Eigene prozedurale Grafiken, ohne Nintendo-Assets.
 

@@ -1,5 +1,11 @@
 # v0.2 art assets
 
+## Living Worlds update (v0.4)
+
+`scripts/map_detail.gd` supplies shared footprint clearance, terrain, the coastal causeway and the stepped pyramid. The beach terrain slopes below the ocean; the race mesh provides the bridge's real collision surface. Bridge sidewalls and piers follow the shared route. The desert passage is checked against the road/guardrail width; independent roadside scenery is excluded around the temple. Dune ridges intentionally intersect as landscape masses, while independently placed architecture uses nonoverlapping conservative footprints.
+
+City buildings now share that placement system. Mid-ground blocks fill the distant gaps, with sidewalk strips and small street fixtures in the foreground. `sky_traffic.gd` moves 18 visual-only taxis through clear lanes above the road, safely above the crossings. Sand and neon traffic are code-native effects; no new external images or licensed models were added. These remain stylized procedural environments, not scanned photorealistic assets.
+
 ## NEON City update (v0.3)
 
 The former harbor is now NEON City; its saved scene keeps the legacy `neon_harbor.tscn` filename to preserve editor references. `scripts/neon_city.gd` authors original city geometry, signs, lights and boost-pad visuals. The supplied racing screenshot is an atmosphere reference, not a source of extracted game assets. Facade windows, wet-road ripple normals and refracting camera droplets are code-native shaders; the existing albedo images are reused, not replaced with scanned texture sets. Road splashes and rainfall scale with quality. Disable camera droplets independently in Settings.

@@ -208,7 +208,7 @@ func show_menu() -> void:
 	state = "menu"
 	hud.visible = false
 	center.text = ""
-	clear_panel("POCKET CIRCUIT", "NEON CITY UPDATE  /  v0.3 DEVELOPMENT PREVIEW")
+	clear_panel("POCKET CIRCUIT", "LIVING WORLDS  /  v0.4 DEVELOPMENT PREVIEW")
 	label("Choose your next starting line.", 18)
 	var tracks := OptionButton.new()
 	for title in Course.TITLES: tracks.add_item(title)
@@ -336,6 +336,19 @@ func _process(delta: float) -> void:
 		camera.look_at(course.point(18))
 	elif state in ["hub", "race"]:
 		var kart = karts[0]
+		var sand := world.get_node_or_null("Sandstorm") as CPUParticles3D
+		if sand:
+			var temple := world.get_node_or_null("PyramidTemple") as Node3D
+			var inside := false
+			if temple:
+				var local: Vector3 = temple.to_local(kart.position)
+				inside = absf(local.x)<18 and absf(local.z)<38
+			sand.global_position = kart.position+Vector3.UP*5-Vector3.RIGHT*16
+			sand.visible = not inside
+			sand.emitting = not inside
+			var atmosphere := world.get_node("Atmosphere") as WorldEnvironment
+			var storm := 0.5+0.5*sin(menu_time*0.18)
+			atmosphere.environment.fog_density = lerpf(atmosphere.environment.fog_density,0.001 if inside else 0.003+storm*0.004,1-exp(-delta*2))
 		var rain := world.get_node_or_null("Rain") as CPUParticles3D
 		if rain: rain.global_position = kart.global_position + Vector3.UP*12
 		var forward: Vector3 = -kart.global_transform.basis.z
@@ -501,6 +514,12 @@ func capture_preview() -> void:
 	await get_tree().create_timer(0.5).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("res://test-output/curve_%d.png" % selected_track)
+	for sample in ([64,80,128] if selected_track==0 else ([2,7,14,72] if selected_track==1 else [40,80,120])):
+		karts[0].reset_at(course.point(sample),course.forward(sample))
+		camera.position = karts[0].position-course.forward(sample)*6.2+Vector3.UP*3.2
+		await get_tree().create_timer(0.6).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("res://test-output/location_%d_%d.png" % [selected_track,sample])
 	show_settings("menu")
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
