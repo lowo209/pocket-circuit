@@ -127,6 +127,15 @@ try {
   await guest.wait(
     (message) =>
       message.type === 'race' &&
+      message.state.racers.some((racer) => racer.id === joined.id && racer.steering < -0.1),
+  );
+  // Wheel yaw follows the +Z chase-camera basis: right is negative, left positive.
+  const beforeLeft = guest.messages.at(-1)?.state?.elapsed ?? moving.state.elapsed;
+  await drive(450, [[guest, { throttle: true, left: true }]]);
+  await guest.wait(
+    (message) =>
+      message.type === 'race' &&
+      message.state.elapsed > beforeLeft &&
       message.state.racers.some((racer) => racer.id === joined.id && racer.steering > 0.1),
   );
   host.send({ type: 'leave' });
