@@ -142,6 +142,23 @@ func build(track) -> void:
 			var beam := box(Vector3(19,0.18,0.18),course.point(i)+Vector3.UP*7,glowing("52cbd9"),false,"LightTunnel")
 			beam.rotation.y = atan2(-course.forward(i).x,-course.forward(i).z)
 		add_rain()
+	add_reflections()
+
+func add_reflections() -> void:
+	# One broad capture plus a local pit capture; never more than two per mesh.
+	for i in 2:
+		var probe := ReflectionProbe.new()
+		probe.name = "WorldReflection" if i==0 else "PaddockReflection"
+		probe.position = Vector3(10,35,0) if i==0 else course.point(0)+Vector3.UP*3
+		probe.size = Vector3(360,110,410) if i==0 else Vector3(95,35,100)
+		probe.max_distance = 300 if i==0 else 100
+		probe.intensity = 0.55 if i==0 else 0.8
+		probe.ambient_mode = ReflectionProbe.AMBIENT_DISABLED
+		probe.box_projection = i==1
+		probe.enable_shadows = false
+		probe.cull_mask = 1
+		probe.update_mode = ReflectionProbe.UPDATE_ONCE
+		add_child(probe)
 
 func setup_environment() -> void:
 	var node := WorldEnvironment.new()
@@ -150,26 +167,30 @@ func setup_environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color("081324") if night else Color("547d9b")
-	sky_mat.sky_horizon_color = Color("283947") if night else Color("d6b399")
+	sky_mat.sky_top_color = Color("081324") if night else Color("32699a")
+	sky_mat.sky_horizon_color = Color("283947") if night else Color("bdcbd4")
+	sky_mat.sky_curve = 0.65
+	sky_mat.sky_energy_multiplier = 0.65
 	sky_mat.ground_horizon_color = sky_mat.sky_horizon_color
 	sky_mat.ground_bottom_color = Color("152431") if night else Color("65717b")
 	sky.sky_material = sky_mat
 	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR if night else Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_color = Color("8da9ca") if night else Color("b6cbdf")
-	env.ambient_light_energy = 0.48 if night else 0.35
+	env.ambient_light_energy = 0.5 if night else 0.45
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
-	env.fog_light_color = Color("1a3049") if night else Color("b7a897")
-	env.fog_density = 0.0017
+	env.fog_light_color = Color("1a3049") if night else Color("b6c5d1")
+	env.fog_density = 0.0008 if night else 0.00045
 	node.environment = env
 	add_child(node)
 	sun = DirectionalLight3D.new()
 	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-32,-48,0)
-	sun.light_color = Color("94bde6") if night else Color("ffdab3")
-	sun.light_energy = 0.45 if night else 0.85
+	sun.rotation_degrees = Vector3(-27,-48,0)
+	sun.light_color = Color("94bde6") if night else Color("fff0d9")
+	sun.light_energy = 0.45 if night else 0.72
+	sun.light_angular_distance = 1.2
+	sun.shadow_blur = 1.5
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 100
 	add_child(sun)
@@ -188,20 +209,48 @@ func build_road() -> void:
 		var midpoint := (a+b)*0.5
 		var heading := atan2(-(b-a).x,-(b-a).z)
 		for side in [-1,1]:
-			var curb := box(Vector3(0.65,0.18,a.distance_to(b)+0.04),midpoint+course.side(i)*7.85*side,mat("d9d4c7" if i%4<2 else "a04432"),false,"Curb")
-			curb.rotation.y = heading
-			if i % 2 == 0 and i > 5 and i < 154:
-				var rail := box(Vector3(0.22,0.5,a.distance_to(course.point(i+2))+0.2),course.point(i+1)+course.side(i+1)*10*side+Vector3.UP*0.8,mat("68777e",0.35),true,"Guardrail")
-				rail.rotation.y = heading
+			if i > 5 and i < 154:
+				var edge_a: Vector3 = a + course.side(i)*10*side
+				var edge_b: Vector3 = b + course.side(i+1)*10*side
+				var rail := box(Vector3(0.16,0.42,edge_a.distance_to(edge_b)+0.12),(edge_a+edge_b)*0.5+Vector3.UP*0.78,mat("68777e",0.55),true,"Guardrail")
+				rail.rotation.y = atan2(-(edge_b-edge_a).x,-(edge_b-edge_a).z)
 				box(Vector3(0.18,0.9,0.18),midpoint+course.side(i)*10*side+Vector3.UP*0.4,mat("343d43"))
 		if i%3 == 0:
 			var line := box(Vector3(0.16,0.012,2.4),midpoint+Vector3.UP*0.033,mat("ddc993"),false,"LaneMark")
 			line.rotation.y = heading
 	surface.generate_normals()
 	surface.generate_tangents()
-	var asphalt := mat("90969d" if night else "b0aca5",0.28 if night else 0.9,"asphalt")
-	asphalt.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var asphalt := ShaderMaterial.new()
+	asphalt.shader = load("res://shaders/asphalt.gdshader")
+	asphalt.set_shader_parameter("albedo_texture",load("res://textures/asphalt.png"))
+	asphalt.set_shader_parameter("wetness",0.8 if night else 0.0)
 	mesh_object(surface.commit(),Vector3.ZERO,asphalt,"TrackSurface")
+	for side in [-1,1]: build_curb(side)
+
+func curb_section(index: int, side: int) -> Array[Vector3]:
+	var p: Vector3 = course.point(index)
+	var outward: Vector3 = course.side(index) * side
+	return [p+outward*7.5+Vector3.UP*0.025,p+outward*8.25+Vector3.UP*0.10,p+outward*8.25+Vector3.UP*0.025]
+
+func build_curb(side: int) -> void:
+	var strip := SurfaceTool.new()
+	strip.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var distance := 0.0
+	for i in course.COUNT:
+		var a := curb_section(i,side)
+		var b := curb_section(i+1,side)
+		# World-distance paint bands; joined geometry follows both road-edge endpoints.
+		var color := Color("d9d6cc") if int(distance/4)%2==0 else Color("a4483b")
+		for face in 2:
+			for vertex in [a[face],b[face],b[face+1],a[face],b[face+1],a[face+1]]:
+				strip.set_color(color)
+				strip.add_vertex(vertex)
+		distance += course.point(i).distance_to(course.point(i+1))
+	strip.generate_normals()
+	var paint := mat("ffffff",0.85).duplicate() as StandardMaterial3D
+	paint.vertex_color_use_as_albedo = true
+	paint.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh_object(strip.commit(),Vector3.ZERO,paint,"ContinuousCurbLeft" if side<0 else "ContinuousCurbRight")
 
 func build_paddock() -> void:
 	var hub: Vector3 = course.hub_position()
@@ -324,3 +373,6 @@ func set_quality(level: int) -> void:
 		sun.directional_shadow_max_distance = [40.0,70.0,110.0,160.0][level]
 	var rain := get_node_or_null("Rain") as CPUParticles3D
 	if rain: rain.amount = [100,250,450,600][level]
+	for probe_name in ["WorldReflection","PaddockReflection"]:
+		var probe := get_node_or_null(probe_name) as ReflectionProbe
+		if probe: probe.visible = level > 0

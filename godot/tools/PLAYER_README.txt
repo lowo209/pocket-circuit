@@ -1,4 +1,4 @@
-POCKET CIRCUIT v0.2 — DEVELOPMENT PREVIEW
+POCKET CIRCUIT v0.2.1 — DEVELOPMENT PREVIEW
 
 Extract the entire ZIP first. Launch PocketCircuit.exe.
 PocketCircuit.pck must stay beside the executable. Godot is not required.

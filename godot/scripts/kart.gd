@@ -12,6 +12,8 @@ var enabled := true
 var driver_name := "YOU"
 var body_visual: Node3D
 var wheels: Array[Node3D] = []
+var steering_pivots: Array[Node3D] = []
+const WHEEL_RADIUS := 0.38
 var smoke: CPUParticles3D
 var max_speed := 27.0
 
@@ -44,6 +46,10 @@ func setup(color: Color) -> void:
 	body_visual = Node3D.new()
 	add_child(body_visual)
 	var paint := material(color, 0.35)
+	paint.roughness = 0.24
+	paint.clearcoat_enabled = true
+	paint.clearcoat = 0.55
+	paint.clearcoat_roughness = 0.18
 	var dark := material(Color("162735"))
 	build_body(paint)
 	box(body_visual, Vector3(1.4,0.15,2.9),Vector3(0,0.32,0),dark)
@@ -70,6 +76,12 @@ func setup(color: Color) -> void:
 		box(body_visual, Vector3(0.36, 0.1, 0.06), Vector3(x, 0.7, 1.43), material(Color("ed573e")))
 	for x in [-0.93, 0.93]:
 		for z in [-0.87, 0.9]:
+			var steering_pivot := Node3D.new()
+			steering_pivot.position = Vector3(x,WHEEL_RADIUS,z)
+			body_visual.add_child(steering_pivot)
+			if z < 0: steering_pivots.append(steering_pivot)
+			var rolling_pivot := Node3D.new()
+			steering_pivot.add_child(rolling_pivot)
 			var wheel := MeshInstance3D.new()
 			var cylinder := CylinderMesh.new()
 			cylinder.top_radius = 0.38
@@ -77,10 +89,9 @@ func setup(color: Color) -> void:
 			cylinder.height = 0.28
 			cylinder.radial_segments = 24
 			wheel.mesh = cylinder
-			wheel.material_override = dark
+			wheel.material_override = material(Color("171b20"))
 			wheel.rotation.z = PI / 2
-			wheel.position = Vector3(x, 0.38, z)
-			body_visual.add_child(wheel)
+			rolling_pivot.add_child(wheel)
 			var rim := MeshInstance3D.new()
 			var rim_shape := CylinderMesh.new()
 			rim_shape.top_radius = 0.24
@@ -88,9 +99,12 @@ func setup(color: Color) -> void:
 			rim_shape.height = 0.3
 			rim_shape.radial_segments = 16
 			rim.mesh = rim_shape
-			rim.material_override = material(Color("b4bdc5"),0.85)
+			rim.material_override = material(Color("343d47"),0.8)
 			wheel.add_child(rim)
-			wheels.append(wheel)
+			for spoke_id in 5:
+				var spoke := box(wheel,Vector3(0.065,0.315,0.4),Vector3.ZERO,material(Color("b4bdc5"),0.85))
+				spoke.rotation.y = spoke_id*PI/5
+			wheels.append(rolling_pivot)
 	smoke = CPUParticles3D.new()
 	smoke.position = Vector3(0, 0.3, 1.4)
 	smoke.amount = 28
@@ -108,6 +122,11 @@ func setup(color: Color) -> void:
 	smoke.mesh = particle_mesh
 	smoke.emitting = false
 	add_child(smoke)
+	set_reflection_layers(body_visual)
+
+func set_reflection_layers(node: Node) -> void:
+	if node is MeshInstance3D: node.layers = 2
+	for child in node.get_children(): set_reflection_layers(child)
 
 func build_body(paint: Material) -> void:
 	# Cross sections form a sloping nose and sculpted side pods without a heavy model.
@@ -157,6 +176,7 @@ func simulate(delta: float, on_road: bool) -> void:
 	var forward := -global_transform.basis.z
 	velocity = forward * speed
 	velocity.y = -2
+	var previous_position := global_position
 	move_and_slide()
 	if get_slide_collision_count() > 0:
 		for i in get_slide_collision_count():
@@ -164,10 +184,14 @@ func simulate(delta: float, on_road: bool) -> void:
 				speed *= 0.97
 	body_visual.rotation.z = lerpf(body_visual.rotation.z, -steering * speed * 0.0025, delta * 8)
 	body_visual.rotation.y = lerp_angle(body_visual.rotation.y, -steering * 0.2 if drifting else 0.0, delta * 8)
-	for wheel in wheels:
-		wheel.rotate_y(speed * delta * 2)
+	update_wheels((global_position - previous_position).dot(forward))
 	smoke.emitting = enabled and (drifting or boost_time > 0)
 	smoke.color = Color("efa74c") if boost_time > 0 else Color(0.65, 0.7, 0.72, 0.5)
+
+func update_wheels(travel: float) -> void:
+	for pivot in steering_pivots: pivot.rotation.y = -steering * 0.4
+	# v = omega*r. Forward is -Z; negative rotation around X rolls forward.
+	for wheel in wheels: wheel.rotation.x = fmod(wheel.rotation.x - travel/WHEEL_RADIUS,TAU)
 
 func reset_at(pos: Vector3, heading: Vector3) -> void:
 	position = pos + Vector3.UP * 0.05

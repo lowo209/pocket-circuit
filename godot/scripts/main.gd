@@ -18,6 +18,7 @@ var content: VBoxContainer
 var hud: Label
 var center: Label
 var minimap: Control
+var race_hud: Control
 var state := "menu"
 var previous_state := "hub"
 var menu_time := 0.0
@@ -119,7 +120,9 @@ func build_ui() -> void:
 	button_style.set_corner_radius_all(4)
 	theme.set_stylebox("normal", "Button", button_style)
 	var hover := button_style.duplicate()
-	hover.bg_color = Color("45616a")
+	hover.bg_color = Color("355048")
+	hover.border_color = Color("9de3cc")
+	hover.set_border_width_all(1)
 	theme.set_stylebox("hover", "Button", hover)
 	theme.set_stylebox("focus", "Button", hover)
 	var pressed := button_style.duplicate()
@@ -136,7 +139,8 @@ func build_ui() -> void:
 	style.content_margin_top = 24
 	style.content_margin_bottom = 24
 	style.border_width_top = 3
-	style.border_color = Color("dfae69")
+	style.border_color = Color("9de3cc")
+	style.set_corner_radius_all(10)
 	panel.add_theme_stylebox_override("panel", style)
 	ui.add_child(panel)
 	content = VBoxContainer.new()
@@ -156,9 +160,11 @@ func build_ui() -> void:
 	center.add_theme_font_size_override("font_size", 64)
 	ui.add_child(center)
 	minimap = load("res://ui/minimap.gd").new()
-	minimap.position = Vector2(1040,24)
+	minimap.position = Vector2(1068,24)
 	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(minimap)
+	race_hud = load("res://ui/race_hud.gd").new()
+	ui.add_child(race_hud)
 
 func clear_panel(title: String, subtitle: String) -> void:
 	hud.hide()
@@ -191,7 +197,7 @@ func show_menu() -> void:
 	state = "menu"
 	hud.visible = false
 	center.text = ""
-	clear_panel("POCKET CIRCUIT", "THREE LOCATIONS  /  v0.2 DEVELOPMENT PREVIEW")
+	clear_panel("POCKET CIRCUIT", "THREE LOCATIONS  /  v0.2.1 DEVELOPMENT PREVIEW")
 	label("Choose your next starting line.", 18)
 	var tracks := OptionButton.new()
 	for title in Course.TITLES: tracks.add_item(title)
@@ -303,6 +309,8 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	menu_time += delta
+	hud.hide()
+	race_hud.update_info(state,Course.TITLES[selected_track],race,karts,course)
 	minimap.visible = state in ["hub","race"]
 	minimap.course = course
 	minimap.karts = karts
@@ -458,6 +466,13 @@ func capture_preview() -> void:
 	await get_tree().create_timer(1).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("res://test-output/race_%d.png" % selected_track)
+	race.countdown = 0
+	race.elapsed = 2
+	karts[0].reset_at(course.point(18),course.forward(18))
+	camera.position = karts[0].position-course.forward(18)*9+Vector3.UP*4.7
+	await get_tree().create_timer(0.5).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("res://test-output/curve_%d.png" % selected_track)
 	show_settings("menu")
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw

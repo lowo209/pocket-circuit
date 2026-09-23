@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1-dev — 2026-09-23
+
+- Joined curb strips to the actual road edges; connected guardrails to their own endpoints.
+- Fixed tire rotation: independent axle and steering pivots, rolling based on distance travelled and wheel radius, correct reversing, visible rim spokes.
+- Replaced floating HUD text with position/lap/time cards, speed and boost readout, controls strip and fitted minimap.
+- Added static environment reflection probes, clearcoat paint, patchy wet asphalt, less repetitive water and revised sky/shadow balance. Low quality disables the probes.
+- Added regression checks for curb seams and wheel direction/axis; preserved Godot's 4.7 migration and texture import settings from the installed project.
+
 ## 0.2.0-dev — 2026-09-23
 
 - Rebuilt the three original web track layouts as smooth roads with painted curbs, guardrails and new scenery.

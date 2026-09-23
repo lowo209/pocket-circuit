@@ -38,7 +38,8 @@ func forward(index: int) -> Vector3:
 	return (point(index + 1) - point(index)).normalized()
 
 func side(index: int) -> Vector3:
-	return forward(index).cross(Vector3.UP).normalized()
+	# Centered tangent gives both adjoining strips exactly the same edge vertex.
+	return (point(index + 1) - point(index - 1)).normalized().cross(Vector3.UP).normalized()
 
 func nearest(pos: Vector3) -> int:
 	var best := 0
