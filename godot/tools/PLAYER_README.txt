@@ -1,4 +1,4 @@
-POCKET CIRCUIT v0.2.1 — DEVELOPMENT PREVIEW
+POCKET CIRCUIT v0.3.0 — DEVELOPMENT PREVIEW
 
 Extract the entire ZIP first. Launch PocketCircuit.exe.
 PocketCircuit.pck must stay beside the executable. Godot is not required.
@@ -6,10 +6,10 @@ Windows x86-64 with OpenGL 3.3 compatible graphics is the initial target.
 Exact hardware requirements and clean-machine compatibility remain unverified.
 
 WASD / arrows: drive. Shift + steering: drift, release for a boost.
-Space: rechargeable boost. E: race near the Harbor Club sign.
+Space: rechargeable boost. E: race near the PIT CLUB sign.
 R: recover to the track. Esc: pause/resume.
 
-Choose Sunset Bay, Dust Valley or Neon Harbor from the menu.
+Choose Sunset Bay, Dust Valley or NEON City from the menu.
 Explore Paddock for free driving, or Quick Race for a three-lap solo race.
 Five AI opponents. Adaptive AI adjusts between completed races;
 disable it in Settings for fixed medium difficulty.

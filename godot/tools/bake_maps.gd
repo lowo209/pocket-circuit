@@ -12,7 +12,7 @@ func bake() -> void:
 	for i in 3:
 		var course = load("res://scripts/course.gd").new(i)
 		var world = load("res://scripts/world.gd").new()
-		world.name = ["SunsetBay","DustValley","NeonHarbor"][i]
+		world.name = ["SunsetBay","DustValley","NEONCity"][i]
 		root.add_child(world)
 		world.build(course)
 		set_owners(world,world)

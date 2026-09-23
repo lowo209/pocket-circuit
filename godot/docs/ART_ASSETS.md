@@ -1,5 +1,9 @@
 # v0.2 art assets
 
+## NEON City update (v0.3)
+
+The former harbor is now NEON City; its saved scene keeps the legacy `neon_harbor.tscn` filename to preserve editor references. `scripts/neon_city.gd` authors original city geometry, signs, lights and boost-pad visuals. The supplied racing screenshot is an atmosphere reference, not a source of extracted game assets. Facade windows, wet-road ripple normals and refracting camera droplets are code-native shaders; the existing albedo images are reused, not replaced with scanned texture sets. Road splashes and rainfall scale with quality. Disable camera droplets independently in Settings.
+
 Original textures generated with the built-in image-generation tool; no external game assets were used. The image-generation skill supplied the tileable, diffuse-lit material workflow. Geometry, noise materials, water shader, car model, minimap and scene baking were implemented directly in GDScript/Godot.
 
 ## Texture prompts

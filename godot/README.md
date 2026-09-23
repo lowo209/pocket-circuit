@@ -1,4 +1,4 @@
-# Pocket Circuit — Godot v0.2.1 development preview
+# Pocket Circuit — Godot v0.3.0 development preview
 
 A new standalone Windows game built with Godot 4 and GDScript. The repository's original web game remains a reference. Development of the rebuild happens here.
 
@@ -6,11 +6,11 @@ A new standalone Windows game built with Godot 4 and GDScript. The repository's 
 
 ## Play
 
-Extract the entire `PocketCircuit_v0.2.1-dev.zip` into one folder and run `PocketCircuit.exe`. Keep `PocketCircuit.pck` beside it. Godot is not required on the player's PC. Do not run directly from inside the ZIP.
+Extract the entire `PocketCircuit_v0.3.0-dev.zip` into one folder and run `PocketCircuit.exe`. Keep `PocketCircuit.pck` beside it. Godot is not required on the player's PC. Do not run directly from inside the ZIP.
 
-v0.2.1 fixes curb/guardrail alignment and wheel rotation, redesigns the race HUD, and adds static environment reflection probes with retuned lighting and surface roughness. These are approximate static reflections, not ray tracing or fully dynamic mirrors. Low quality disables the probes.
+v0.3.0 replaces the harbor scenery with NEON City: dense illuminated buildings, overhead crossings, wet asphalt with animated ripples, road splashes and optional camera droplets. The chase camera is closer/lower on every track. Three marked city boost pads work for both the player and AI without consuming stored boost. Reflections remain approximate static captures, not ray tracing or fully dynamic mirrors; Low quality disables them.
 
-Choose Sunset Bay, Dust Valley or Neon Harbor from the menu. Explore Paddock lets you drive around the selected location. Drive near the PIT CLUB sign and press E to start, or choose Quick Race. Complete three laps through the checkpoints, see your result, and return to the paddock. A race has a five-minute time limit; unfinished races award no coins.
+Choose Sunset Bay, Dust Valley or NEON City from the menu. Explore Paddock lets you drive around the selected location. Drive near the PIT CLUB sign and press E to start, or choose Quick Race. Complete three laps through the checkpoints, see your result, and return to the paddock. A race has a five-minute time limit; unfinished races award no coins.
 
 | Input | Action |
 | --- | --- |

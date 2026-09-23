@@ -104,14 +104,14 @@ func build(track) -> void:
 	setup_environment()
 	var ground_color: String = ["c8b691","bc8054","576577"][course.track_id]
 	box(Vector3(360,1,420), Vector3(45,-0.62,-5), mat(ground_color,0.95,"sand"),true,"Terrain")
-	if course.track_id != 1:
+	if course.track_id == 0:
 		var water := ShaderMaterial.new()
 		water.shader = load("res://shaders/water.gdshader")
 		water.set_shader_parameter("water_color", Color("132b42") if night else Color("286a7d"))
 		box(Vector3(1600,0.15,1600),Vector3(0,-1.4,0),water,false,"Ocean")
 	build_road()
 	build_paddock()
-	for i in range(0, course.COUNT, 4):
+	for i in range(0, 0 if night else course.COUNT, 4):
 		var p: Vector3 = course.point(i)
 		var right: Vector3 = course.side(i)
 		for sign in [-1, 1]:
@@ -137,10 +137,7 @@ func build(track) -> void:
 		for i in [36,91,128]: canyon_arch(i)
 		for i in 14: rock(Vector3(-195+i*30,0,-190),Vector3(22,28+rng.randf()*35,25),"825d49")
 	else:
-		for i in [22,72,120]: crane(course.point(i)+course.side(i)*32)
-		for i in range(90,110,3):
-			var beam := box(Vector3(19,0.18,0.18),course.point(i)+Vector3.UP*7,glowing("52cbd9"),false,"LightTunnel")
-			beam.rotation.y = atan2(-course.forward(i).x,-course.forward(i).z)
+		load("res://scripts/neon_city.gd").build(self,course)
 		add_rain()
 	add_reflections()
 
@@ -223,7 +220,7 @@ func build_road() -> void:
 	var asphalt := ShaderMaterial.new()
 	asphalt.shader = load("res://shaders/asphalt.gdshader")
 	asphalt.set_shader_parameter("albedo_texture",load("res://textures/asphalt.png"))
-	asphalt.set_shader_parameter("wetness",0.8 if night else 0.0)
+	asphalt.set_shader_parameter("wetness",0.98 if night else 0.0)
 	mesh_object(surface.commit(),Vector3.ZERO,asphalt,"TrackSurface")
 	for side in [-1,1]: build_curb(side)
 
@@ -261,7 +258,7 @@ func build_paddock() -> void:
 	for side in [-1,1]: box(Vector3(0.5,7,0.5),gate+course.side(0)*8.8*side+Vector3.UP*3.5,mat("233342"),true,"GantryLeg")
 	var beam := box(Vector3(18,1.5,0.65),gate+Vector3.UP*7,mat("1b2832"),false,"StartGantry")
 	beam.rotation.y = heading
-	var sign := sign_text("POCKET CIRCUIT",gate+Vector3.UP*7,50)
+	var sign := sign_text("NEON CITY" if night else "POCKET CIRCUIT",gate+Vector3.UP*7,50)
 	sign.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	sign.rotation.y = heading
 	sign.position += course.forward(0)*-0.36
@@ -352,10 +349,10 @@ func lamp(pos: Vector3) -> void:
 func add_rain() -> void:
 	var rain := CPUParticles3D.new()
 	rain.name = "Rain"
-	rain.amount = 600
+	rain.amount = 1400
 	rain.lifetime = 1.0
 	rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	rain.emission_box_extents = Vector3(26,12,26)
+	rain.emission_box_extents = Vector3(15,12,15)
 	rain.direction = Vector3(0.1,-1,0)
 	rain.initial_velocity_min = 24
 	rain.initial_velocity_max = 28
@@ -364,7 +361,32 @@ func add_rain() -> void:
 	streak.size = Vector3(0.012,0.6,0.012)
 	rain.mesh = streak
 	rain.color = Color(0.6,0.72,0.85,0.35)
+	var rain_material := StandardMaterial3D.new()
+	rain_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rain_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	rain_material.vertex_color_use_as_albedo = true
+	streak.material = rain_material
 	add_child(rain)
+	var splashes := CPUParticles3D.new()
+	splashes.name = "RoadSplashes"
+	splashes.amount = 100
+	splashes.lifetime = 0.28
+	splashes.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	splashes.emission_box_extents = Vector3(4.8,0,12)
+	splashes.direction = Vector3.UP
+	splashes.spread = 55
+	splashes.initial_velocity_min = 0.4
+	splashes.initial_velocity_max = 1.1
+	splashes.gravity = Vector3(0,-5,0)
+	var droplet := SphereMesh.new()
+	droplet.radius = 0.012
+	droplet.height = 0.024
+	droplet.radial_segments = 4
+	droplet.rings = 2
+	droplet.material = rain_material
+	splashes.mesh = droplet
+	splashes.color = Color(0.65,0.85,1,0.6)
+	add_child(splashes)
 
 func set_quality(level: int) -> void:
 	if sun == null: sun = get_node_or_null("Sun")
@@ -372,7 +394,9 @@ func set_quality(level: int) -> void:
 		sun.shadow_enabled = level > 0
 		sun.directional_shadow_max_distance = [40.0,70.0,110.0,160.0][level]
 	var rain := get_node_or_null("Rain") as CPUParticles3D
-	if rain: rain.amount = [100,250,450,600][level]
+	if rain: rain.amount = [250,600,1000,1400][level]
+	var splashes := get_node_or_null("RoadSplashes") as CPUParticles3D
+	if splashes: splashes.amount = [20,40,70,100][level]
 	for probe_name in ["WorldReflection","PaddockReflection"]:
 		var probe := get_node_or_null(probe_name) as ReflectionProbe
 		if probe: probe.visible = level > 0

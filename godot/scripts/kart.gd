@@ -6,6 +6,7 @@ var drift := false
 var boost_pressed := false
 var speed := 0.0
 var boost_time := 0.0
+var pad_cooldown := 0.0
 var boost_energy := 1.0
 var drift_charge := 0.0
 var enabled := true
@@ -149,7 +150,13 @@ func build_body(paint: Material) -> void:
 	body.material_override = double_sided
 	body_visual.add_child(body)
 
+func apply_track_boost() -> void:
+	if not enabled or pad_cooldown > 0 or speed < 2: return
+	boost_time = maxf(boost_time,1.1)
+	pad_cooldown = 2.5
+
 func simulate(delta: float, on_road: bool) -> void:
+	pad_cooldown = maxf(0,pad_cooldown-delta)
 	if not enabled:
 		throttle = 0
 		steering = 0
@@ -200,3 +207,4 @@ func reset_at(pos: Vector3, heading: Vector3) -> void:
 	velocity = Vector3.ZERO
 	drift_charge = 0
 	boost_time = 0
+	pad_cooldown = 0

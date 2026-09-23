@@ -2,7 +2,8 @@ extends RefCounted
 ## One shared centerline drives road visuals, AI, checkpoints and recovery.
 const WIDTH := 15.0
 const COUNT := 160
-const TITLES := ["Sunset Bay", "Dust Valley", "Neon Harbor"]
+const TITLES := ["Sunset Bay", "Dust Valley", "NEON City"]
+const CITY_BOOST_PADS := [5, 68, 100]
 const ROUTES := [
 	[Vector2(0,0),Vector2(0,90),Vector2(35,155),Vector2(105,178),Vector2(163,146),Vector2(152,93),Vector2(202,54),Vector2(233,-10),Vector2(200,-86),Vector2(144,-130),Vector2(87,-111),Vector2(30,-158),Vector2(-44,-137),Vector2(-65,-94),Vector2(-35,-60),Vector2(0,-45)],
 	[Vector2(0,0),Vector2(0,100),Vector2(40,150),Vector2(95,140),Vector2(108,90),Vector2(70,42),Vector2(92,5),Vector2(160,20),Vector2(198,75),Vector2(242,64),Vector2(270,5),Vector2(235,-52),Vector2(150,-56),Vector2(140,-96),Vector2(171,-119),Vector2(190,-145),Vector2(173,-172),Vector2(150,-188),Vector2(65,-174),Vector2(36,-119),Vector2(-20,-132),Vector2(-60,-114),Vector2(-76,-78),Vector2(-55,-45),Vector2(-20,-36)],

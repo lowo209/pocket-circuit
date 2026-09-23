@@ -11,6 +11,7 @@ var volume := 0.65
 var fullscreen := false
 var fps_limit := 60
 var vsync := true
+var lens_rain := true
 var error := ""
 
 func load_save(path: String = SAVE_PATH) -> void:
@@ -32,6 +33,7 @@ func load_save(path: String = SAVE_PATH) -> void:
 	if fps_limit not in [30, 60, 120, 0]:
 		fps_limit = 60
 	vsync = bool(data.get("vsync", true))
+	lens_rain = bool(data.get("lens_rain", true))
 
 func save(path: String = SAVE_PATH) -> bool:
 	# Preserve an unreadable save until the player has recovered it manually.
@@ -39,7 +41,7 @@ func save(path: String = SAVE_PATH) -> bool:
 		return false
 	var data := {"version": 1, "coins": coins, "races": races, "best_lap": best_lap,
 		"skill": skill, "adaptive": adaptive, "quality": quality, "volume": volume,
-		"fullscreen": fullscreen, "fps_limit": fps_limit, "vsync": vsync}
+		"fullscreen": fullscreen, "fps_limit": fps_limit, "vsync": vsync, "lens_rain": lens_rain}
 	var file := FileAccess.open(path + ".tmp", FileAccess.WRITE)
 	if file == null:
 		return false

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0-dev — 2026-09-23
+
+- Replaced Neon Harbor scenery with NEON City: illuminated tower blocks, original storefront signs, elevated crossings, skyline and cyan/magenta road lighting. The legacy scene filename remains stable for existing editor references.
+- Added animated puddle ripples, denser rain, road splashes and screen-refracting lens droplets below the HUD; camera droplets have a saved on/off setting.
+- Brought the chase camera closer and lower, with a gentler boost field-of-view change.
+- Added three visible boost pads shared by the player and AI, with retrigger cooldowns and no stored-energy cost.
+- Refined wet asphalt roughness and facade materials; retained the Compatibility renderer and quality scaling. Reflections are still static approximations, not dynamic mirrors.
+
 ## 0.2.1-dev — 2026-09-23
 
 - Joined curb strips to the actual road edges; connected guardrails to their own endpoints.

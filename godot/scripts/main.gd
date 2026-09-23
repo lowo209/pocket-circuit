@@ -13,6 +13,7 @@ var karts: Array = []
 var brains: Array = []
 var camera: Camera3D
 var ui: CanvasLayer
+var lens_rain: ColorRect
 var panel: PanelContainer
 var content: VBoxContainer
 var hud: Label
@@ -107,6 +108,16 @@ func setup_inputs() -> void:
 			InputMap.action_add_event(action, event)
 
 func build_ui() -> void:
+	var weather := CanvasLayer.new()
+	weather.layer = 0
+	add_child(weather)
+	lens_rain = ColorRect.new()
+	lens_rain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lens_rain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lens_material := ShaderMaterial.new()
+	lens_material.shader = load("res://shaders/lens_rain.gdshader")
+	lens_rain.material = lens_material
+	weather.add_child(lens_rain)
 	ui = CanvasLayer.new()
 	add_child(ui)
 	var theme := Theme.new()
@@ -144,7 +155,7 @@ func build_ui() -> void:
 	panel.add_theme_stylebox_override("panel", style)
 	ui.add_child(panel)
 	content = VBoxContainer.new()
-	content.add_theme_constant_override("separation", 10)
+	content.add_theme_constant_override("separation", 6)
 	panel.add_child(content)
 	hud = Label.new()
 	hud.position = Vector2(30, 24)
@@ -197,7 +208,7 @@ func show_menu() -> void:
 	state = "menu"
 	hud.visible = false
 	center.text = ""
-	clear_panel("POCKET CIRCUIT", "THREE LOCATIONS  /  v0.2.1 DEVELOPMENT PREVIEW")
+	clear_panel("POCKET CIRCUIT", "NEON CITY UPDATE  /  v0.3 DEVELOPMENT PREVIEW")
 	label("Choose your next starting line.", 18)
 	var tracks := OptionButton.new()
 	for title in Course.TITLES: tracks.add_item(title)
@@ -225,7 +236,7 @@ func enter_hub() -> void:
 	center.show()
 	center.text = ""
 	park_karts()
-	camera.position = karts[0].position + Vector3(0, 5, 9)
+	camera.position = karts[0].position - course.forward(0)*6.2 + Vector3.UP*3.2
 
 func start_race() -> void:
 	state = "race"
@@ -242,7 +253,7 @@ func start_race() -> void:
 		karts[i].boost_energy = 1
 		brains[i].skill = clampf((profile.skill if profile.adaptive else 0.5) + (i - 3) * 0.025, 0, 1)
 		stuck_time[i] = 0
-	camera.position = karts[0].position - course.forward(0) * 9 + Vector3.UP * 5
+	camera.position = karts[0].position - course.forward(0) * 6.2 + Vector3.UP * 3.2
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause_game"):
@@ -293,6 +304,11 @@ func _physics_process(delta: float) -> void:
 			kart.enabled = false
 		var index: int = course.nearest(kart.position)
 		var on_road: bool = kart.position.distance_to(course.point(index)) < course.WIDTH * 0.56 or state == "hub"
+		if selected_track == 2 and kart.enabled:
+			for pad in Course.CITY_BOOST_PADS:
+				var offset: Vector3 = kart.position-course.point(pad)
+				if absf(offset.dot(course.forward(pad)))<1.8 and absf(offset.dot(course.side(pad)))<4.0 and (-kart.basis.z).dot(course.forward(pad))>0.5:
+					kart.apply_track_boost()
 		kart.simulate(delta, on_road)
 		if kart.position.y < -5 or absf(kart.position.x-15) > 222 or absf(kart.position.z+5) > 208:
 			recover(i)
@@ -309,6 +325,7 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	menu_time += delta
+	lens_rain.visible = selected_track == 2 and state in ["hub","race"] and profile.lens_rain
 	hud.hide()
 	race_hud.update_info(state,Course.TITLES[selected_track],race,karts,course)
 	minimap.visible = state in ["hub","race"]
@@ -322,10 +339,15 @@ func _process(delta: float) -> void:
 		var rain := world.get_node_or_null("Rain") as CPUParticles3D
 		if rain: rain.global_position = kart.global_position + Vector3.UP*12
 		var forward: Vector3 = -kart.global_transform.basis.z
-		var target: Vector3 = kart.position - forward * (8.0 + absf(kart.speed) * 0.04) + Vector3.UP * 4.7
+		var splashes := world.get_node_or_null("RoadSplashes") as CPUParticles3D
+		if splashes:
+			var road_index: int = course.nearest(kart.position)
+			splashes.global_position = course.point(road_index)+Vector3.UP*0.06
+			splashes.rotation.y = atan2(-course.forward(road_index).x,-course.forward(road_index).z)
+		var target: Vector3 = kart.position - forward * (6.2 + absf(kart.speed) * 0.018) + Vector3.UP * 3.2
 		camera.position = camera.position.lerp(target, 1 - exp(-delta * 6))
-		camera.look_at(kart.position + forward * 4 + Vector3.UP)
-		camera.fov = lerpf(camera.fov, 82.0 if kart.boost_time > 0 else 68.0, delta * 5)
+		camera.look_at(kart.position + forward * 3 + Vector3.UP)
+		camera.fov = lerpf(camera.fov, 74.0 if kart.boost_time > 0 else 65.0, delta * 5)
 		var speed := int(absf(kart.speed) * 3.6)
 		if state == "hub":
 			hud.text = "%s  /  FREE DRIVE\n%03d km/h\n\nDrive to the PIT CLUB sign and press E to race.\nWASD • Drive   Shift • Drift   Space • Boost\nR • Recover   Esc • Menu" % [Course.TITLES[selected_track].to_upper(),speed]
@@ -387,6 +409,11 @@ func show_settings(return_state: String) -> void:
 	adaptive.button_pressed = profile.adaptive
 	adaptive.toggled.connect(func(value): profile.adaptive = value)
 	content.add_child(adaptive)
+	var droplets := CheckButton.new()
+	droplets.text = "Rain droplets on camera"
+	droplets.button_pressed = profile.lens_rain
+	droplets.toggled.connect(func(value): profile.lens_rain = value)
+	content.add_child(droplets)
 	var full := CheckButton.new()
 	full.text = "Fullscreen"
 	full.button_pressed = profile.fullscreen
@@ -427,6 +454,7 @@ func show_settings(return_state: String) -> void:
 
 func apply_settings() -> void:
 	world.set_quality(profile.quality)
+	if lens_rain: lens_rain.material.set_shader_parameter("drop_count",[8.0,14.0,20.0,24.0][profile.quality])
 	get_viewport().msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X, Viewport.MSAA_8X][profile.quality]
 	Engine.max_fps = profile.fps_limit
 	if DisplayServer.get_name() != "headless":
@@ -469,7 +497,7 @@ func capture_preview() -> void:
 	race.countdown = 0
 	race.elapsed = 2
 	karts[0].reset_at(course.point(18),course.forward(18))
-	camera.position = karts[0].position-course.forward(18)*9+Vector3.UP*4.7
+	camera.position = karts[0].position-course.forward(18)*6.2+Vector3.UP*3.2
 	await get_tree().create_timer(0.5).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("res://test-output/curve_%d.png" % selected_track)

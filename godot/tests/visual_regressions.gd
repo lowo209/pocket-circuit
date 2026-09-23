@@ -18,6 +18,14 @@ func run_checks() -> void:
 	for front in kart.steering_pivots: assert(front.rotation.y<0,"Right input must steer front wheels right")
 	for roll in kart.wheels:
 		if roll.get_parent() not in kart.steering_pivots: assert(is_zero_approx(roll.get_parent().rotation.y))
+	kart.speed = 20
+	kart.apply_track_boost()
+	assert(kart.boost_time>1 and kart.boost_energy==1,"Pads grant boost without spending stored energy")
+	kart.boost_time = 0.4
+	kart.apply_track_boost()
+	assert(is_equal_approx(kart.boost_time,0.4),"A pad cannot retrigger during cooldown")
+	kart.reset_at(Vector3.ZERO,Vector3.FORWARD)
+	assert(kart.pad_cooldown==0)
 	kart.free()
 	for track_id in 3:
 		var course = load("res://scripts/course.gd").new(track_id)
@@ -34,6 +42,22 @@ func run_checks() -> void:
 				var edge: Vector3 = course.point(i)+course.side(i)*7.5*side+Vector3.UP*0.025
 				assert(vertices[i*12].distance_to(edge)<0.0001,"Curb must follow road edge")
 		assert(map.get_node("WorldReflection") is ReflectionProbe)
+		if track_id==2:
+			assert(course.TITLES[2]=="NEON City")
+			assert(map.get_node("RoadSplashes") is CPUParticles3D)
+			assert(map.get_node("Rain") is CPUParticles3D)
+			assert(map.find_children("BoostPad*","MeshInstance3D",false).size()==12)
+			assert(map.find_children("City*Tower*","MeshInstance3D",false).size()>20)
+			map.set_quality(0)
+			assert(map.get_node("Rain").amount==250)
+			assert(not map.get_node("WorldReflection").visible)
 		map.free()
+	var profile = load("res://scripts/profile.gd").new()
+	profile.lens_rain = false
+	assert(profile.save("user://city_settings_test.json"))
+	var restored = load("res://scripts/profile.gd").new()
+	restored.load_save("user://city_settings_test.json")
+	assert(not restored.lens_rain,"Camera rain preference must persist")
+	DirAccess.remove_absolute("user://city_settings_test.json")
 	print("VISUAL REGRESSIONS: PASS (three closed curb loops, wheel axle/roll/reverse/steering, probes)")
 	quit()
