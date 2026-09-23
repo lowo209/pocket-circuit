@@ -26,7 +26,7 @@ import { TRACKS, SKINS, TRACK_WEATHER, getTrack, getSkin } from './shared';
 import type { GraphicsQuality } from './game/environment';
 import type { InputState, RaceState, RoomState, TrackId } from './shared';
 import { createRace, trackSamples } from './game/simulation';
-import { Multiplayer } from './network';
+import { Multiplayer, type ConnectionStatus } from './network';
 import { loadProfile, saveProfile, levelFor, rewardRace, buySkin, formatTime } from './profile';
 import type { Profile } from './profile';
 
@@ -51,6 +51,7 @@ export default function App() {
       () => new URLSearchParams(location.search).get('room')?.toUpperCase().slice(0, 6) ?? '',
     ),
     [busy, setBusy] = useState(false),
+    [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('offline'),
     [notice, setNotice] = useState(''),
     [help, setHelp] = useState(false),
     [reward, setReward] = useState<{
@@ -125,10 +126,6 @@ export default function App() {
           if (wasRacing && !r.racing) {
             setRace(null);
             setReward(null);
-          } else if (r.racing && service.isHost) {
-            activeRaceRef.current?.state.racers.forEach((racer) => {
-              if (!racer.bot && !r.players.some((p) => p.id === racer.id)) racer.bot = true;
-            });
           }
         }
       },
@@ -136,9 +133,7 @@ export default function App() {
         setTrack(state.trackId);
         setRace({ state, localId: service.localId, online: true });
       },
-      onInput: (id, input) => {
-        inputs.current[id] = input;
-      },
+      onStatus: setConnectionStatus,
       onError: (message) => setNotice(message),
       onDisconnect: () => {
         setRace(null);
@@ -183,7 +178,7 @@ export default function App() {
     if (!room || !n?.isHost) return;
     setReward(null);
     inputs.current = {};
-    n.startRace(createRace(room.trackId, room.players));
+    n.startRace();
   }
   function exitRace() {
     if (race?.online) clearNetwork();
@@ -230,6 +225,11 @@ export default function App() {
     me = reward?.race.racers.find((r) => r.id === reward.localId);
   return (
     <div className={`app ${race ? 'playing' : ''}`}>
+      {connectionStatus === 'reconnecting' && (
+        <div className="connection-banner" role="status">
+          <LoaderCircle size={16} className="spin" /> Verbindung wird wiederhergestellt …
+        </div>
+      )}
       <header className="topbar">
         <button
           className="brand"
@@ -550,7 +550,7 @@ export default function App() {
                     </button>
                   </div>
                   <p className="online-note">
-                    <Wifi size={13} /> Privat spielen. Code teilen. Losfahren.
+                    <Wifi size={13} /> Server-Multiplayer. Code teilen. Losfahren.
                   </p>
                 </>
               )}
@@ -726,7 +726,7 @@ export default function App() {
             POCKET CIRCUIT <i /> ONE MORE LAP.
           </span>
           <span>
-            Indie Kart Racing <span className="footer-divider">/</span> v1.1
+            Indie Kart Racing <span className="footer-divider">/</span> v1.2
           </span>
         </footer>
       )}

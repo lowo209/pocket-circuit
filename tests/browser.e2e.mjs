@@ -1,30 +1,17 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { PeerServer } from 'peer';
+
 import { createServer } from 'vite';
 import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-// This test uses a local signaling broker. Gameplay still travels over real WebRTC.
-const publicBroker = process.env.TEST_PUBLIC_PEER === '1';
-if (!publicBroker) {
-  process.env.VITE_PEER_HOST = 'localhost';
-  process.env.VITE_PEER_PORT = '9010';
-  process.env.VITE_PEER_PATH = '/';
-  process.env.VITE_PEER_SECURE = 'false';
-}
 const artifacts = new URL('../test-results/browser/', import.meta.url);
 await mkdir(artifacts, { recursive: true });
-let broker;
-if (!publicBroker)
-  await new Promise((resolve) => {
-    PeerServer({ port: 9010, path: '/' }, (server) => {
-      broker = server;
-      resolve();
-    });
-  });
-const server = await createServer({ server: { port: 5183, strictPort: true, host: '127.0.0.1' } });
-await server.listen();
+const baseUrl = process.env.TEST_BASE_URL || 'http://127.0.0.1:5183';
+const server = process.env.TEST_BASE_URL
+  ? null
+  : await createServer({ server: { port: 5183, strictPort: true, host: '127.0.0.1' } });
+await server?.listen();
 const browser = await chromium.launch({
   channel: process.env.PW_BROWSER_CHANNEL || (process.platform === 'win32' ? 'msedge' : undefined),
   headless: true,
@@ -52,7 +39,7 @@ async function open(width = 1440, height = 1000) {
     )
       errors.push(message.text());
   });
-  await page.goto('http://127.0.0.1:5183/', { waitUntil: 'domcontentloaded' });
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Auf die Strecke', exact: true }).waitFor();
   return page;
 }
@@ -128,7 +115,7 @@ try {
   await guest.keyboard.up('KeyW');
   assert.ok(
     Number(await guest.locator('.speedometer>strong').innerText()) > 0,
-    'guest input reaches host simulation and returns',
+    'guest input reaches authoritative server simulation and returns',
   );
   await shot(guest, 'multiplayer.png');
   const late = await open();
@@ -139,9 +126,8 @@ try {
   assert.match(await late.getByRole('status').innerText(), /läuft|gestartet|Rennen/);
   await host.keyboard.press('Escape');
   await host.getByRole('button', { name: 'Rennen verlassen', exact: true }).click();
-  await guest
-    .getByRole('button', { name: 'Raum erstellen', exact: true })
-    .waitFor({ timeout: 15000 });
+  await guest.waitForTimeout(1000);
+  assert.ok(await guest.locator('.race-top').isVisible(), 'server race survives host departure');
   await Promise.all([host.context().close(), guest.context().close(), late.context().close()]);
   const mobile = await open(390, 844);
   await shot(mobile, 'mobile.png');
@@ -176,12 +162,12 @@ try {
         'garage preview and locked purchase',
         'solo keyboard driving',
         'abort gives no reward',
-        'real WebRTC lobby',
+        'same-origin WebSocket lobby',
         'ready reset on track change',
         'host race start',
         'guest driving round trip',
         'late join rejection',
-        'host disconnect',
+        'race survives host departure',
         'mobile layout',
         'mobile gas control',
         'high and balanced graphics with shader validation',
@@ -198,9 +184,7 @@ try {
   throw error;
 } finally {
   await browser.close();
-  await server.close();
-  broker?.close();
-  broker?.closeAllConnections?.();
+  await server?.close();
 }
-// PeerServer owns housekeeping timers which otherwise keep this test process alive.
+// End after all browser and multiplayer server resources are closed.
 process.exit(0);

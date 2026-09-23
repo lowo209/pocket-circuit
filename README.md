@@ -1,116 +1,88 @@
 # Pocket Circuit 🏁
 
-Ein eigenständiger 3D-Kart-Racer für den Browser. Mit privaten Multiplayer-Räumen, drei Strecken, Drift-Boosts, Items und einer freischaltbaren Garage. Eigene prozedurale Grafiken; keine Nintendo-Assets.
+Ein eigenständiger 3D-Kart-Racer für den Browser: private Multiplayer-Räume, drei Strecken, Drift-Boosts, Items und freischaltbare Skins. Eigene prozedurale Grafiken, ohne Nintendo-Assets.
 
 ![Pocket Circuit](docs/preview.png)
 
-## Auf Vercel deployen
+## Auf Vercel starten
 
-1. In [Vercel](https://vercel.com/new) **Add New → Project** öffnen und dieses GitHub-Repository importieren.
-2. Das Projektverzeichnis bleibt `/`. Vercel erkennt **Vite**. Node.js **22.x** oder neuer verwenden.
-3. **Deploy** klicken. Die Build-Einstellungen stehen bereits in `vercel.json`:
-   - Build: `npm run build`
-   - Ausgabe: `dist`
-4. Die HTTPS-Adresse öffnen, **Mit Freunden → Raum erstellen** wählen und den Einladungslink teilen.
+1. Dieses Repository in [Vercel](https://vercel.com/new) importieren. Framework **Vite**, Projektverzeichnis `/`, Node.js **22.x**. Build und Ausgabe stehen in `vercel.json`.
+2. Im Projekt **Storage → Create Database → Redis** wählen und die Datenbank mit dem Projekt verbinden. Die Integration setzt die geheime Servervariable `REDIS_URL`. Alternativ funktioniert eine native Redis-/Upstash-TCP-Verbindung als `REDIS_URL`; ein REST-Endpunkt genügt nicht.
+3. Datenbank möglichst in **Frankfurt / AWS eu-central-1** anlegen, passend zur Function-Region `fra1`. **Fluid Compute** muss in den Projekteinstellungen aktiviert sein (bei neuen Projekten Standard).
+4. Neu deployen, die HTTPS-Adresse öffnen und **Mit Freunden → Raum erstellen** wählen. Freunde öffnen dieselbe Website und geben den Code ein oder verwenden den Einladungslink.
 
-Für den Standardbetrieb sind **keine Umgebungsvariablen und keine eigene Datenbank** nötig. Die öffentliche PeerJS-Infrastruktur vermittelt die Verbindung, danach werden die Rennzustände direkt über WebRTC übertragen. Vercel liefert die statischen Dateien aus.
+**Der gesamte Multiplayer läuft über Vercel:** Browser verbinden sich per `wss://<deine-domain>/api/ws` mit der Vercel Function. Sie berechnet Rennen, KI, Kollisionen, Items und Ergebnisse. Redis aus dem Vercel Marketplace hält Räume und laufende Rennen über Function-Instanzen hinweg zusammen. Es gibt keinen PeerJS-Dienst, keinen WebRTC-/TURN-Server und keine direkte Verbindung zwischen Geräten.
 
-## Enthalten
+Vercel [unterstützt WebSockets derzeit in Beta](https://vercel.com/docs/functions/websockets). Verbindungen werden vor dem Function-Zeitlimit erneuert; die Sitzung setzt sich mit demselben Fahrer fort. Ohne Redis zeigt Multiplayer eine verständliche Einrichtungsmeldung, statt einen unzuverlässigen Produktionsraum im Arbeitsspeicher anzulegen. Solo benötigt keine Datenbank. Vercel- und Datenbank-Planlimits gelten; kostenlose Pläne sind nicht unbegrenzt.
 
-- Drei komplette 3D-Strecken: **Sunset Bay**, **Dust Valley**, **Neon Harbor**.
+## Spielen
+
+- **Solo:** du gegen fünf KI-Fahrer. **Multiplayer:** bis zu vier Menschen, auf sechs Fahrer mit KI aufgefüllt.
+- **Sunset Bay:** Strandpromenade, Leuchtturm, Strandhütten und lange Küstenkurven.
+- **Dust Valley:** Canyon-Kehren, Felsbögen und Minenabschnitte.
+- **Neon Harbor:** Hafen-Schikanen, Container, Kräne und beleuchtete Durchfahrten im Regen.
 - Drei Runden mit Countdown, Platzierungen, Bestzeiten und Ergebnisbildschirm.
-- **Solo:** gegen fünf KI-Fahrer.
-- **Multiplayer:** bis zu vier Menschen in einem privaten Raum, auf sechs Fahrer mit KI aufgefüllt.
-- Host-gesteuerte Simulation: Gäste senden Eingaben; Positionen, Items und Ergebnisse berechnet der Host.
-- Driften und aufgeladene Boosts; **Turbo**, **Schild**, **Impuls** aus Item-Boxen.
+- Driften und aufgeladene Boosts; Turbo, Schild und Impuls aus Item-Boxen.
 - Münzen, XP, Level und sechs kosmetische Skins mit identischen Fahrwerten.
-- Geräte-lokaler Fortschritt in `localStorage`, mit Schutz vor doppelt vergebenen Rennbelohnungen.
-- Tastatur und Touch-Steuerung, responsive Menüs und animierte 3D-Garagenvorschau.
-- Reflektierender Klarlack, Metallfelgen, weichere Karosserien und HDR-Umgebungslicht.
-- Echte planare Spiegelungen auf dem Meer und der nassen Straße in Neon Harbor, mit animierten Wellen und unregelmäßigen Pfützen.
-- Wetter je Strecke: warme Küstenbeleuchtung und Wolken, Canyon-Staub oder Regen mit Spritzringen. Wetter ist visuell und verändert die Fahrwerte nicht.
-- Kart-zu-Kart-Kollisionen und Randbegrenzungen mit Impulsen; KI vermeidet Verkehr, Schilde dämpfen Stöße.
-- Gelenkte und rotierende Räder, Federung, Fahrerbewegung, Bremslichter, Drift-/Aufprallpartikel und eine reagierende Kamera.
-- **Grafik → Hoch / Flüssig** im Menü und im Rennmenü; reduziert bei Bedarf Spiegelungsauflösung, Schatten und Partikel. Die Einstellung wird auf dem Gerät gespeichert.
+- Klarlack, Metallfelgen, HDR-Licht sowie planare Spiegelungen auf Wasser und nassem Asphalt.
+- Wetter, gelenkte und rotierende Räder, Federung, Bremslichter und Drift-/Aufprallpartikel.
+- Grafik **Hoch / Flüssig**, Tastatur und Touch-Steuerung.
 
-![Neon Harbor: Regen, nasse Fahrbahn und reflektierende Karts](docs/neon-harbor.png)
+![Neon Harbor](docs/neon-harbor.png)
 
-## Steuerung
+| Taste | Aktion |
+| --- | --- |
+| W / ↑ | Gas |
+| S / ↓ | Bremsen / rückwärts |
+| A / ← | Links lenken |
+| D / → | Rechts lenken |
+| Shift + Lenken | Driften; nach Aufladen loslassen für Boost |
+| Leertaste | Item |
+| Esc | Pause / Rennmenü |
 
-| Taste          | Aktion                                               |
-| -------------- | ---------------------------------------------------- |
-| W / ↑          | Gas geben                                            |
-| S / ↓          | Bremsen / rückwärts                                  |
-| A D / ← →      | Lenken                                               |
-| Shift + Lenken | Driften; nach dem Aufladen loslassen für einen Boost |
-| Leertaste      | Item einsetzen                                       |
-| Esc            | Pause / Rennmenü                                     |
+Online läuft die Simulation auf dem Server weiter, auch wenn ein Spieler das Rennmenü öffnet oder seinen Tab in den Hintergrund legt. Verbindungsabbrüche lösen eine automatische Wiederverbindung aus. Bei Ausstieg übernimmt KI das Kart; falls der Raumersteller geht, übernimmt ein anderer Spieler die Lobby-Verwaltung. Neue Spieler können erst nach dem Rennen beitreten. Rennen enden spätestens nach vier Minuten; nicht angekommene Fahrer bekommen keine Bestzeit.
 
-Auf Touch-Geräten erscheinen Bildschirmtasten. Online läuft das Rennen weiter, während ein Teilnehmer das Rennmenü geöffnet hat.
+Fortschritt wird je Browser in `localStorage` gespeichert und ist nicht kontogebunden. Das Spiel bietet private Freundesrunden, keine Accounts, öffentliche Spielersuche oder Cloud-Spielstände. Serverberechnete Rennen verhindern vom Client erfundene Positionen; lokale Münzen/XP sind weiterhin lokal veränderbar.
 
-## Lokal starten
+## Lokal entwickeln und prüfen
 
-Voraussetzung: Node.js ≥ 22.12.
+Node.js ≥ 22.12:
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Anschließend die von Vite ausgegebene lokale Adresse öffnen.
+Der Vite-Server enthält auch den Multiplayer-WebSocket-Endpunkt. Ohne `REDIS_URL` teilen lokale Geräte einen Entwicklungsraum im selben Serverprozess. Zum Testen auf zwei Geräten dieselbe von Vite ausgegebene LAN-Adresse öffnen; `localhost` verweist auf jedem Gerät auf das jeweilige Gerät selbst.
 
 ```bash
-npm test          # Simulation, Fortschritt und Netzwerkprotokoll
-npm run build    # TypeScript-Prüfung und Produktionsbuild
-npm run preview  # Gebaute Version lokal ansehen
-npm run test:graphics # Browser-Bilder und Shader-Prüfung für alle Strecken
+npm test              # Lenkung, Rennphysik, Fortschritt, Protokoll und Backend
+npm run build         # Frontend UND Backend-Typprüfung, Produktionsbuild
+npm run test:e2e      # Mehrere Browser, Lobby, serverseitiges Fahren, Mobile
+npm run test:graphics # Alle Strecken, Grafikmodi, Shader und Screenshots
 ```
 
-### Browser- und Multiplayer-Test
-
-```bash
-npx playwright install chromium
-npm run test:e2e
-```
-
-Der Test startet seinen eigenen Vite-Server und PeerServer. Er prüft echte WebRTC-Verbindungen in getrennten Browser-Kontexten, Gast-Eingaben, Bereitschaft, Streckenwechsel, späte Beitritte, Host-Abbruch, Solo-Steuerung und Mobilansichten. Screenshots landen in `test-results/browser/` und werden nicht eingecheckt. Unter Windows verwendet er standardmäßig den installierten Edge; auf anderen Systemen Playwright Chromium. Mit `PW_BROWSER_CHANNEL` lässt sich der Browser auswählen. Ports 5183 und 9010 müssen frei sein.
-
-Mit `TEST_PUBLIC_PEER=1` verwendet derselbe Test den öffentlichen PeerJS-Dienst; dafür ist Internet nötig. Beispiel in PowerShell:
-
-```powershell
-$env:TEST_PUBLIC_PEER = '1'
-npm run test:e2e
-```
-
-## Multiplayer-Betrieb
-
-- Der Host-Tab muss geöffnet und aktiv bleiben. Hintergrund-Tabs können die Simulation drosseln. Beim Verlassen des Hosts endet der Raum.
-- Gäste, die ein laufendes Rennen verlassen, werden durch KI ersetzt. Ein gestartetes Rennen ist für neue Beitritte geschlossen.
-- Erst wenn alle menschlichen Fahrer fertig sind, kehrt der Host mit allen in die Lobby zurück.
-- Nach vier Minuten wird ein Rennen beendet. Nicht angekommene Fahrer erhalten eine Teilnahmebelohnung, aber keine Bestzeit.
-- Der kostenlose öffentliche PeerJS-Dienst ist eine externe Abhängigkeit ohne eigene Verfügbarkeitsgarantie. Für direkten Verbindungsaufbau können restriktive Firmen-, Mobilfunk- oder NAT-Netze einen TURN-Relay benötigen. Zwei Browser im gleichen Netzwerk beweisen keine Erreichbarkeit in jedem fremden Netzwerk.
-- Für einen eigenen Signalserver gibt es `VITE_PEER_HOST`, `VITE_PEER_PORT`, `VITE_PEER_PATH` und `VITE_PEER_SECURE`. `.env.example` enthält Beispiele.
-- `VITE_ICE_SERVERS` unterstützt eine JSON-Liste eigener STUN/TURN-Server. **Alle `VITE_*`-Werte sind öffentlich**. Dauerhafte geheime TURN-Zugangsdaten gehören nicht in den Client; verwende dafür eine eigene API, die kurzlebige Zugangsdaten ausgibt, und passe `peerOptions()` an.
-
-Das Projekt ist ein spielbarer Arcade-Prototyp für private Runden. Es enthält kein öffentliches Matchmaking, keine Accounts, keine Cloud-Synchronisation und kein vertrauenswürdiges Wettkampf-/Anti-Cheat-System. Der Host und der lokal gespeicherte Fortschritt sind vom Spieler kontrollierbar. Fortschritt gilt je Browser und Website-Adresse; gelöschte Browserdaten löschen den Spielstand.
+Browser-Tests benötigen Edge unter Windows oder `npx playwright install chromium` auf anderen Systemen. `PW_BROWSER_CHANNEL` überschreibt die Browserwahl. Die Tests starten eigene Server auf Ports 5183/5184; Screenshots landen im ignorierten Ordner `test-results/`. Tests mit `REDIS_URL` können dieselbe echte Redis-Implementierung verwenden. `npm run preview` liefert nur den statischen Build; für lokalen Multiplayer `npm run dev` verwenden.
 
 ## Aufbau
 
 ```text
-src/
-  App.tsx               Menü, Garage, Karriere, Lobby und Ergebnisse
-  GameSurface.tsx       Spielschleife, Eingaben und HUD
-  game/simulation.ts    Fahrphysik, Strecken, KI, Items und Runden
-  game/renderer.ts      Three.js-Welten, Karts, Effekte und Kamera
-  game/kartVisuals.ts   Fahrzeugmodelle, Animationen und Partikel
-  game/environment.ts  HDR-Himmel, Materialien und planare Spiegelungen
-  game/weather.ts      GPU-Regen, Spritzringe, Wolken und Staub
-  network.ts            PeerJS-Räume, Protokollvalidierung und WebRTC
-  profile.ts            Münzen, XP, Käufe und lokale Speicherung
-  shared.ts             Datentypen, Strecken- und Skin-Katalog
-tests/                  Unit- und Browser-Tests
+api/ws.ts               Vercel-WebSocket-Function
+server/multiplayer.ts   Verbindungen, Validierung, Wiederverbindung
+server/rooms.ts         Räume, Berechtigungen, serverseitige Simulation
+server/store.ts         Redis-CAS, Sitzungen, Eingaben und TTL
+src/App.tsx             Menü, Garage, Karriere, Lobby und Ergebnisse
+src/GameSurface.tsx     Solo-Spielschleife, Eingaben und HUD
+src/network.ts          WebSocket-Client und Wiederverbindung
+src/game/simulation.ts  Fahrphysik, KI, Items, Runden, Zustandsexport
+src/game/renderer.ts    Three.js-Welten und Kamera
+src/game/trackScenery.ts Strecken-Landmarks
+src/game/kartVisuals.ts Karts und Animationen
+src/game/environment.ts HDR-Himmel, Materialien, Spiegelungen
+src/game/weather.ts     Regen, Spritzringe, Wolken und Staub
+src/profile.ts          Geräte-lokaler Fortschritt
 ```
 
-Stack: React, TypeScript, Vite, Three.js, PeerJS. Die 3D-Assets werden im Code erstellt. Google Fonts liefert optional Barlow Condensed und DM Sans; Systemschriften dienen als Fallback.
+Räume speichern keine Klartext-Sitzungstokens: serverseitig liegt nur ein Hash. Schreibzugriffe werden per atomarem Redis-Vergleich serialisiert; mehrere Function-Instanzen können ein Rennen nicht doppelt fortschreiben. Eingaben sind an Verbindung, Renn-ID und aufsteigende Sequenz gebunden. Räume laufen nach Inaktivität ab. Datenbank-Geheimnisse gehören ausschließlich in Servervariablen, niemals in `VITE_*` oder Git.
 
-Referenzen: [Vercel für Vite](https://vercel.com/docs/frameworks/frontend/vite), [PeerJS](https://peerjs.com/client/api/peer), [PeerJS-Verbindungen und TURN](https://peerjs.com/client/faq).
+Stack: React, TypeScript, Vite, Three.js, native WebSockets (`ws`), Redis (`ioredis`). Google Fonts ist optional; Systemschriften dienen als Fallback.

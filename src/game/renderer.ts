@@ -6,6 +6,7 @@ import { makeKart, updateKartVisual, KartParticles } from './kartVisuals';
 import type { KartMotion } from './kartVisuals';
 import { RaceEnvironment } from './environment';
 import type { GraphicsQuality } from './environment';
+import { buildTrackScenery, sceneryReservations } from './trackScenery';
 export { makeKart } from './kartVisuals';
 
 const TAU = Math.PI * 2;
@@ -337,14 +338,15 @@ export class KartRenderer {
     const night = this.trackId === 'midnight';
     const batch = new SceneryBatch();
     const random = mulberry(coast ? 739 : night ? 408 : 290);
+    const reservations = sceneryReservations(this.trackId);
     const minX = Math.min(...points.map((p) => p.x));
     const maxX = Math.max(...points.map((p) => p.x));
     const minZ = Math.min(...points.map((p) => p.z));
     const maxZ = Math.max(...points.map((p) => p.z));
     const centerX = (minX + maxX) / 2;
     const centerZ = (minZ + maxZ) / 2;
-    const radiusX = (maxX - minX) / 2 + 70;
-    const radiusZ = (maxZ - minZ) / 2 + 60;
+    const radiusX = (maxX - minX) / 2 + (coast ? 52 : 70);
+    const radiusZ = (maxZ - minZ) / 2 + (coast ? 54 : 60);
     const ocean = new THREE.Mesh(
       new THREE.PlaneGeometry(2300, 2300),
       standard(coast ? '#46b9bc' : night ? '#142440' : '#ba805b'),
@@ -458,7 +460,8 @@ export class KartRenderer {
       const z = minZ - 45 + random() * (maxZ - minZ + 90);
       const distance = clearance(x, z);
       if (
-        distance < track.width / 2 + 4 ||
+        distance < track.width / 2 + 8 ||
+        reservations.some((zone) => Math.hypot(x - zone.x, z - zone.z) < zone.radius) ||
         ((x - centerX) / radiusX) ** 2 + ((z - centerZ) / radiusZ) ** 2 > 0.96
       )
         continue;
@@ -570,8 +573,8 @@ export class KartRenderer {
     // Road furniture makes turns legible at speed.
     for (let p = 30; p < length; p += 48) {
       const point = sampleTrack(this.trackId, p);
-      const x = point.x + Math.cos(point.heading) * (track.width / 2 + 2.9);
-      const z = point.z - Math.sin(point.heading) * (track.width / 2 + 2.9);
+      const x = point.x + Math.cos(point.heading) * (track.width / 2 + 7.5);
+      const z = point.z - Math.sin(point.heading) * (track.width / 2 + 7.5);
       if (night) {
         batch.add('box', '#556d85', [x, 3.8, z], [0.22, 7.6, 0.22]);
         batch.add('box', '#c5b3ff', [x, 7.65, z], [2, 0.16, 0.4], [0, point.heading, 0], true);
@@ -581,6 +584,7 @@ export class KartRenderer {
       }
     }
     batch.finish(this.world);
+    buildTrackScenery(this.world, this.trackId);
     if (night) {
       const moon = new THREE.Mesh(
         new THREE.SphereGeometry(18, 24, 16),
@@ -629,19 +633,19 @@ export class KartRenderer {
       batch.add(
         'box',
         '#f6f0dc',
-        place(side * (width / 2 + 1.5), 4.8, 0),
+        place(side * (width / 2 + 7.3), 4.8, 0),
         [0.65, 9.6, 0.65],
         [0, start.heading, 0],
       );
       batch.add(
         'box',
         '#c2e972',
-        place(side * (width / 2 + 1.5), 1.5, 0),
+        place(side * (width / 2 + 7.3), 1.5, 0),
         [0.75, 3, 0.75],
         [0, start.heading, 0],
       );
     }
-    batch.add('box', '#f6f0dc', place(0, 9.6, 0), [width + 3.65, 1.65, 0.6], [0, start.heading, 0]);
+    batch.add('box', '#f6f0dc', place(0, 9.6, 0), [width + 15.3, 1.65, 0.6], [0, start.heading, 0]);
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 128;
@@ -893,7 +897,8 @@ export class KartRenderer {
     } else {
       for (const kart of this.racers.values()) kart.visible = false;
       for (const pickup of this.pickups.values()) pickup.visible = false;
-      const progress = this.reducedMotion ? 38 : 38 + this.time * 3.5;
+      // A parked showcase keeps the camera clear of roofs and overhead gantries.
+      const progress = this.trackId === 'coast' ? 92 : this.trackId === 'canyon' ? 104 : 58;
       const point = sampleTrack(this.trackId, progress);
       x = point.x;
       z = point.z;
@@ -901,15 +906,16 @@ export class KartRenderer {
       this.attract.position.set(x, 0.085, z);
       this.attract.rotation.y = heading;
       this.previewMotion.heading = heading;
-      this.previewMotion.speed = this.reducedMotion ? 0 : 3.5;
+      this.previewMotion.speed = 0;
       this.previewMotion.steering = undefined;
       updateKartVisual(this.attract, this.previewMotion, dt, this.time, this.reducedMotion);
       // Elevated three-quarter camera leaves generous room for the track and coastline.
       const distance = this.camera.aspect < 1 ? 24 : 18;
+      const orbit = this.reducedMotion ? 0 : Math.sin(this.time * .13) * 1.2;
       this.cameraTarget.set(
-        x + Math.sin(heading) * distance + Math.cos(heading) * 12,
+        x + Math.sin(heading) * distance + Math.cos(heading) * (12 + orbit),
         13,
-        z + Math.cos(heading) * distance - Math.sin(heading) * 12,
+        z + Math.cos(heading) * distance - Math.sin(heading) * (12 + orbit),
       );
       const textSpace = this.camera.aspect > 1.35 ? 7 : 0;
       this.lookTarget.set(

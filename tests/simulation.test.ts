@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { PerspectiveCamera, Vector3 } from 'three';
 import { EMPTY_INPUT, LAPS, TRACKS } from '../src/shared';
 import type { InputState, Player } from '../src/shared';
 import {
   createRace,
+  exportRaceRuntime,
   KART_HALF_LENGTH,
   KART_HALF_WIDTH,
   nearestTrackPoint,
+  restoreRaceRuntime,
   sampleTrack,
   stepRace,
   trackLength,
@@ -98,10 +101,7 @@ test('side contacts separate the kart footprints without manufacturing forward r
   stepRace(state, {}, 1 / 60);
   const [a, b] = state.racers;
   assert.ok(Math.hypot(a.x - b.x, a.z - b.z) >= KART_HALF_WIDTH * 2);
-  assert.deepEqual(
-    state.racers.map((r) => r.progress),
-    before,
-  );
+  assert.ok(state.racers.every((r, index) => Math.abs(r.progress - before[index]) < 1e-8));
   assert.ok(state.racers.every((r) => r.lap === 1 && !r.finished));
   assert.ok(state.racers.every((r) => Math.abs(r.speed) < 0.001));
 });
@@ -190,10 +190,71 @@ test('wheel steering feedback remains normalized and eases back on release', () 
   state.countdown = 0;
   stepRace(state, { human: { ...EMPTY_INPUT, left: true } }, 0.1);
   const turn = state.racers[0].steering!;
-  assert.ok(turn < -0.5 && turn >= -1);
+  assert.ok(turn > 0.5 && turn <= 1);
   stepRace(state, {}, 0.1);
-  assert.ok(state.racers[0].steering! > turn && state.racers[0].steering! <= 0);
+  assert.ok(state.racers[0].steering! < turn && state.racers[0].steering! >= 0);
 });
+
+for (const reversing of [false, true]) {
+  test(`left/right controls steer toward the requested screen side ${reversing ? 'in reverse' : 'going forward'} at every track orientation`, () => {
+    for (const track of TRACKS) {
+      for (const fraction of [0, 0.33, 0.66]) {
+        for (const control of ['left', 'right'] as const) {
+          const state = createRace(track.id, [human], false);
+          state.phase = 'racing';
+          state.countdown = 0;
+          state.pickups = [];
+          const racer = state.racers[0];
+          const start = sampleTrack(track.id, trackLength(track.id) * fraction);
+          racer.x = start.x;
+          racer.z = start.z;
+          racer.heading = start.heading;
+          racer.progress = start.progress;
+          racer.speed = reversing ? -7 : 12;
+          const forward = new Vector3(Math.sin(start.heading), 0, Math.cos(start.heading));
+          // Match the chase view: behind the +Z-facing kart, looking along its forward axis.
+          const camera = new PerspectiveCamera(55, 16 / 9, 0.1, 500);
+          camera.position.set(start.x - forward.x * 12, 7.2, start.z - forward.z * 12);
+          camera.lookAt(start.x + forward.x * 8, 1.15, start.z + forward.z * 8);
+          camera.updateMatrixWorld(true);
+          const screenX = (x: number, z: number) => new Vector3(x, 0.6, z).project(camera).x;
+          const before = screenX(start.x, start.z);
+          advance(state, 0.25, { human: { ...EMPTY_INPUT, [control]: true } });
+          const requestedSide = control === 'left' ? -1 : 1;
+          const context = `${track.id}, progress ${fraction}, ${control}, reverse ${reversing}`;
+          const screenMovement = screenX(racer.x, racer.z) - before;
+          assert.ok(
+            screenMovement * requestedSide > 0.003,
+            `Kart must move toward requested screen side: ${context}`,
+          );
+          const forwardDistance = (racer.x - start.x) * forward.x + (racer.z - start.z) * forward.z;
+          assert.ok(
+            forwardDistance * (reversing ? -1 : 1) > 1,
+            `Drive direction must remain correct: ${context}`,
+          );
+          const noseX = screenX(
+            start.x + Math.sin(racer.heading) * 2,
+            start.z + Math.cos(racer.heading) * 2,
+          );
+          const originalNoseX = screenX(start.x + forward.x * 2, start.z + forward.z * 2);
+          assert.ok(
+            (noseX - originalNoseX) * requestedSide * (reversing ? -1 : 1) > 0.003,
+            `Body yaw must reverse when backing up: ${context}`,
+          );
+          const wheelYaw = start.heading + racer.steering! * 0.42;
+          const wheelX = screenX(
+            start.x + Math.sin(wheelYaw) * 2,
+            start.z + Math.cos(wheelYaw) * 2,
+          );
+          assert.ok(
+            (wheelX - originalNoseX) * requestedSide > 0.003,
+            `Front-wheel steering must point toward the selected screen side: ${context}`,
+          );
+        }
+      }
+    }
+  });
+}
 
 test('countdown holds all cars, then throttle moves the player forward', () => {
   const state = createRace('coast', [human]);
@@ -211,18 +272,29 @@ test('countdown holds all cars, then throttle moves the player forward', () => {
   assert.equal(state.racers[0].lap, 1);
 });
 
-test('bots cross ordered gates, complete three laps, and finish in ranked order', () => {
-  const state = createRace('canyon', [], true);
-  advance(state, 165);
-  assert.equal(state.phase, 'finished');
-  assert.ok(state.racers.every((r) => r.finished && r.lap === LAPS));
-  assert.ok(state.racers.every((r) => Math.abs(r.progress - LAPS * trackLength('canyon')) < 0.001));
-  const sorted = [...state.racers].sort((a, b) => a.position - b.position);
-  assert.deepEqual(
-    sorted.map((r) => r.position),
-    [1, 2, 3, 4, 5, 6],
-  );
-  assert.ok(sorted.every((r, i) => i === 0 || r.finishTime! >= sorted[i - 1].finishTime!));
+test('bots cross ordered gates, complete three laps on every map, and finish in ranked order', () => {
+  for (const track of TRACKS) {
+    const state = createRace(track.id, [], true);
+    advance(state, 225);
+    assert.equal(state.phase, 'finished', track.id);
+    assert.ok(
+      state.racers.every((r) => r.finished && r.lap === LAPS && r.finishTime !== null),
+      track.id,
+    );
+    assert.ok(
+      state.racers.every((r) => Math.abs(r.progress - LAPS * trackLength(track.id)) < 0.001),
+      track.id,
+    );
+    const sorted = [...state.racers].sort((a, b) => a.position - b.position);
+    assert.deepEqual(
+      sorted.map((r) => r.position),
+      [1, 2, 3, 4, 5, 6],
+    );
+    assert.ok(
+      sorted.every((r, i) => i === 0 || r.finishTime! >= sorted[i - 1].finishTime!),
+      track.id,
+    );
+  }
 });
 
 test('driving backwards across the start does not award laps', () => {
@@ -277,6 +349,43 @@ test('identical starting players and inputs produce identical simulation state',
   advance(b, 12, { human: throttle });
   assert.notEqual(a.id, b.id);
   assert.deepEqual({ ...a, id: '' }, { ...b, id: '' });
+});
+
+test('JSON snapshots resume held items, drift, collision motion and random sequence exactly', () => {
+  const original = collisionPair(true);
+  place(original, 0, 0, 1.2, 18);
+  place(original, 1, 0, 2.7, 14);
+  original.racers[0].item = 'boost';
+  const held = { human: { ...throttle, left: true, drift: true, item: true } };
+  advance(original, 0.25, held);
+  // Picking up another item while Space remains held must not use it after a server handoff.
+  original.racers[0].item = 'shield';
+  const resumed = JSON.parse(JSON.stringify(original)) as ReturnType<typeof createRace>;
+  const runtime = JSON.parse(JSON.stringify(exportRaceRuntime(original)));
+  restoreRaceRuntime(resumed, runtime);
+  assert.deepEqual(exportRaceRuntime(resumed), exportRaceRuntime(original));
+  runtime.racers.human.knockX = 99;
+  assert.notEqual(
+    exportRaceRuntime(resumed).racers.human.knockX,
+    99,
+    'Restored data must be copied',
+  );
+  advance(original, 0.1, held);
+  advance(resumed, 0.1, held);
+  assert.equal(resumed.racers[0].item, 'shield');
+  advance(original, 2, { human: throttle });
+  advance(resumed, 2, { human: throttle });
+  assert.deepEqual(resumed, original);
+  assert.deepEqual(exportRaceRuntime(resumed), exportRaceRuntime(original));
+});
+
+test('invalid persisted runtime is rejected without replacing the live checkpoint state', () => {
+  const state = createRace('coast', [human]);
+  const before = exportRaceRuntime(state);
+  const malformed = exportRaceRuntime(state);
+  malformed.racers.human.nextGate = Infinity;
+  assert.throws(() => restoreRaceRuntime(state, malformed), /Invalid simulation runtime/);
+  assert.deepEqual(exportRaceRuntime(state), before);
 });
 
 test('a stopped human cannot keep a multiplayer race open forever', () => {

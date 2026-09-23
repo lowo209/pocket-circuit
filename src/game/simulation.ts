@@ -1,4 +1,4 @@
-import { EMPTY_INPUT, LAPS, SKINS, getTrack } from '../shared';
+import { EMPTY_INPUT, LAPS, SKINS, getTrack } from '../shared.js';
 import type {
   InputState,
   ItemKind,
@@ -7,7 +7,7 @@ import type {
   RaceState,
   TrackId,
   TrackSample,
-} from '../shared';
+} from '../shared.js';
 
 const TAU = Math.PI * 2;
 const GATES_PER_LAP = 12;
@@ -31,6 +31,11 @@ interface RacerRuntime {
 interface RaceRuntime {
   racers: Map<string, RacerRuntime>;
   seed: number;
+}
+export interface SerializableRaceRuntime {
+  version: 1;
+  seed: number;
+  racers: Record<string, RacerRuntime>;
 }
 const runtimes = new WeakMap<RaceState, RaceRuntime>();
 let raceSequence = 0;
@@ -191,6 +196,60 @@ function runtimeFor(state: RaceState): RaceRuntime {
     runtimes.set(state, runtime);
   }
   return runtime;
+}
+
+/** Persist alongside RaceState when an authoritative race moves between server instances. */
+export function exportRaceRuntime(state: RaceState): SerializableRaceRuntime {
+  const runtime = runtimeFor(state);
+  return {
+    version: 1,
+    seed: runtime.seed,
+    racers: Object.fromEntries([...runtime.racers].map(([id, racer]) => [id, { ...racer }])),
+  };
+}
+
+/** Restore gate order, held buttons, random sequence and collision motion atomically. */
+export function restoreRaceRuntime(state: RaceState, snapshot: SerializableRaceRuntime): void {
+  if (
+    !snapshot ||
+    snapshot.version !== 1 ||
+    !Number.isInteger(snapshot.seed) ||
+    snapshot.seed < 0 ||
+    snapshot.seed > 0xffffffff ||
+    !snapshot.racers ||
+    typeof snapshot.racers !== 'object' ||
+    Array.isArray(snapshot.racers)
+  )
+    throw new Error('Invalid simulation runtime snapshot.');
+  const racers = new Map<string, RacerRuntime>();
+  for (const racer of state.racers) {
+    const saved = snapshot.racers[racer.id];
+    if (
+      !saved ||
+      !Number.isInteger(saved.nextGate) ||
+      saved.nextGate < 0 ||
+      saved.nextGate > LAPS * GATES_PER_LAP + 1 ||
+      typeof saved.itemHeld !== 'boolean' ||
+      typeof saved.previousDrift !== 'boolean' ||
+      typeof saved.wasBot !== 'boolean' ||
+      ![saved.knockX, saved.knockZ, saved.offsetX, saved.offsetZ, saved.botLane].every(
+        Number.isFinite,
+      )
+    )
+      throw new Error(`Invalid simulation runtime for racer ${racer.id}.`);
+    racers.set(racer.id, {
+      nextGate: saved.nextGate,
+      itemHeld: saved.itemHeld,
+      previousDrift: saved.previousDrift,
+      knockX: saved.knockX,
+      knockZ: saved.knockZ,
+      offsetX: saved.offsetX,
+      offsetZ: saved.offsetZ,
+      botLane: saved.botLane,
+      wasBot: saved.wasBot,
+    });
+  }
+  runtimes.set(state, { seed: snapshot.seed, racers });
 }
 
 export function createRace(trackId: TrackId, players: Player[], fillBots = true): RaceState {
@@ -515,7 +574,9 @@ function advanceRacer(
     if (racer.speed > maxSpeed)
       racer.speed += (maxSpeed - racer.speed) * Math.min(1, dt * (offroad ? 3 : 2));
     racer.speed = clamp(racer.speed, -9, racer.boost > 0 ? 54 : 39);
-    const turn = Number(input.right) - Number(input.left);
+    // The chase camera looks along +Z, so +Y yaw points toward screen-left.
+    // Keep wheel metadata in yaw coordinates; reversing flips body yaw, not wheel direction.
+    const turn = Number(input.left) - Number(input.right);
     racer.steering = (racer.steering ?? 0) + (turn - (racer.steering ?? 0)) * Math.min(1, dt * 10);
     racer.drifting = input.drift && Math.abs(racer.speed) > 11 && turn !== 0 && !offroad;
     if (racer.drifting) racer.driftCharge = Math.min(2, racer.driftCharge + dt);

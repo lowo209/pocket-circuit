@@ -151,17 +151,14 @@ export default function GameSurface({
       if (session) {
         const localInput = pausedRef.current ? EMPTY_INPUT : input.current;
         remoteInputs.current[session.localId] = { ...localInput };
-        if (!session.online || net?.isHost) {
-          if (!pausedRef.current || session.online)
-            stepRace(session.state, remoteInputs.current, dt);
-        }
+        if (!session.online && !pausedRef.current)
+          stepRace(session.state, remoteInputs.current, dt);
         netTimer += dt;
         hudTimer += dt;
         if (netTimer >= 1 / 20) {
           netTimer = 0;
           if (session.online) {
-            if (net?.isHost) net.broadcastRace(session.state);
-            else net?.sendInput(localInput);
+            net?.sendInput(localInput);
           }
         }
         if (hudTimer >= 0.08) {
