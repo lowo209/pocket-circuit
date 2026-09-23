@@ -1,4 +1,4 @@
-import { SKINS, TRAILS } from './shared';
+import { SKINS, TRAILS, DRIVERS, TIRES } from './shared';
 import type { RaceState, TrackId } from './shared';
 export interface Profile {
   name: string;
@@ -8,6 +8,10 @@ export interface Profile {
   equipped: string;
   ownedTrails: string[];
   equippedTrail: string;
+  ownedDrivers: string[];
+  equippedDriver: string;
+  ownedTires: string[];
+  equippedTire: string;
   races: number;
   wins: number;
   bestTimes: Partial<Record<TrackId, number>>;
@@ -22,6 +26,10 @@ export const newProfile = (): Profile => ({
   equipped: 'lime',
   ownedTrails: ['none'],
   equippedTrail: 'none',
+  ownedDrivers: ['rookie'],
+  equippedDriver: 'rookie',
+  ownedTires: ['standard'],
+  equippedTire: 'standard',
   races: 0,
   wins: 0,
   bestTimes: {},
@@ -42,6 +50,10 @@ export function loadProfile(): Profile {
       ? p.ownedTrails.filter((id: unknown) => TRAILS.some((trail) => trail.id === id))
       : ['none'];
     if (!ownedTrails.includes('none')) ownedTrails.push('none');
+    const ownedDrivers = Array.isArray(p.ownedDrivers) ? p.ownedDrivers.filter((id: unknown) => DRIVERS.some((item) => item.id === id)) : ['rookie'];
+    if (!ownedDrivers.includes('rookie')) ownedDrivers.push('rookie');
+    const ownedTires = Array.isArray(p.ownedTires) ? p.ownedTires.filter((id: unknown) => TIRES.some((item) => item.id === id)) : ['standard'];
+    if (!ownedTires.includes('standard')) ownedTires.push('standard');
     return {
       name: typeof p.name === 'string' ? p.name.slice(0, 18) : 'Rookie',
       xp: n(p.xp),
@@ -50,6 +62,10 @@ export function loadProfile(): Profile {
       equipped: owned.includes(p.equipped) ? p.equipped : 'lime',
       ownedTrails,
       equippedTrail: ownedTrails.includes(p.equippedTrail) ? p.equippedTrail : 'none',
+      ownedDrivers,
+      equippedDriver: ownedDrivers.includes(p.equippedDriver) ? p.equippedDriver : 'rookie',
+      ownedTires,
+      equippedTire: ownedTires.includes(p.equippedTire) ? p.equippedTire : 'standard',
       races: n(p.races),
       wins: n(p.wins),
       bestTimes: Object.fromEntries(
@@ -120,6 +136,16 @@ export function buyTrail(p: Profile, id: string): Profile | null {
     ownedTrails: [...p.ownedTrails, id],
     equippedTrail: id,
   };
+}
+export function buyDriver(p: Profile, id: string): Profile | null {
+  const item = DRIVERS.find((candidate) => candidate.id === id);
+  if (!item || p.ownedDrivers.includes(id) || p.coins < item.price || levelFor(p.xp) < item.level) return null;
+  return { ...p, coins: p.coins - item.price, ownedDrivers: [...p.ownedDrivers, id], equippedDriver: id };
+}
+export function buyTire(p: Profile, id: string): Profile | null {
+  const item = TIRES.find((candidate) => candidate.id === id);
+  if (!item || p.ownedTires.includes(id) || p.coins < item.price || levelFor(p.xp) < item.level) return null;
+  return { ...p, coins: p.coins - item.price, ownedTires: [...p.ownedTires, id], equippedTire: id };
 }
 export function formatTime(seconds: number | null | undefined) {
   if (seconds == null) return '—';

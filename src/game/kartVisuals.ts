@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { getSkin, getTrail } from '../shared';
+import { getSkin, getTrail, getDriver, getTire } from '../shared';
 import type { Racer, TrackId } from '../shared';
 
 const TAU = Math.PI * 2;
@@ -101,8 +101,10 @@ function mergeStaticChildren(group: THREE.Group, sourceGeometries: Set<THREE.Buf
 }
 
 /** A chamfered racing kart; wheel steering and axle rotation have separate pivots. */
-export function makeKart(skinId: string): THREE.Group {
+export function makeKart(skinId: string, driverId = 'rookie', tireId = 'standard'): THREE.Group {
   const skin = getSkin(skinId);
+  const driverStyle = getDriver(driverId);
+  const tireStyle = getTire(tireId);
   const root = new THREE.Group();
   const body = new THREE.Group();
   body.name = 'body';
@@ -129,9 +131,9 @@ export function makeKart(skinId: string): THREE.Group {
     roughness: 0.61,
   });
   const tire = new THREE.MeshStandardMaterial({ color: '#14191e', roughness: 0.94 });
-  const tireEdge = new THREE.MeshStandardMaterial({ color: '#20272b', roughness: 0.77 });
+  const tireEdge = new THREE.MeshStandardMaterial({ color: tireId === 'standard' ? '#20272b' : tireStyle.color, roughness: 0.77, emissive: tireId === 'standard' ? '#000000' : tireStyle.color, emissiveIntensity: tireId === 'standard' ? 0 : .12 });
   const chrome = new THREE.MeshPhysicalMaterial({
-    color: '#cbd4dc',
+    color: tireStyle.color,
     metalness: 0.93,
     roughness: 0.16,
     clearcoat: 0.4,
@@ -149,7 +151,8 @@ export function makeKart(skinId: string): THREE.Group {
     clearcoat: 0.9,
     envMapIntensity: 1.2,
   });
-  const suit = new THREE.MeshStandardMaterial({ color: skin.accent, roughness: 0.88 });
+  const suit = new THREE.MeshStandardMaterial({ color: driverId === 'rookie' ? skin.accent : driverStyle.color, roughness: 0.88 });
+  const helmetPaint = new THREE.MeshPhysicalMaterial({ color: driverId === 'rookie' ? skin.color : driverStyle.color, metalness: .25, roughness: .2, clearcoat: 1 });
   const unit = new RoundedBoxGeometry(1, 1, 1, 3, 0.12);
   const box = new THREE.BoxGeometry(1, 1, 1);
   const sphere = new THREE.SphereGeometry(1, 24, 16);
@@ -276,7 +279,8 @@ export function makeKart(skinId: string): THREE.Group {
   driver.add(helmet);
   mesh(helmet, sphere, cream, 0, 0, 0, 0.605, 0.62, 0.59);
   const helmetShell = new THREE.SphereGeometry(1, 28, 18, 0, TAU, 0, Math.PI * 0.57);
-  mesh(helmet, helmetShell, paint, 0, 0, 0, 0.617, 0.632, 0.602);
+  mesh(helmet, helmetShell, helmetPaint, 0, 0, 0, 0.617, 0.632, 0.602);
+  if (driverId !== 'rookie') mesh(helmet, unit, cream, 0, .48, .13, .12, .055, .37);
   const visorMaterial = new THREE.MeshPhysicalMaterial({
     color: '#102a39',
     metalness: 0.58,
@@ -396,6 +400,8 @@ export function makeKart(skinId: string): THREE.Group {
   shadow.position.y = -0.02;
   root.add(shadow);
   root.userData.skin = skinId;
+  root.userData.driver = driverId;
+  root.userData.tire = tireId;
   root.userData.rig = {
     body,
     driver,

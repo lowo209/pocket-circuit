@@ -88,8 +88,24 @@ try {
   await host.reload();
   await host.getByRole('button', { name: 'Garage', exact: true }).click();
   assert.match(await host.getByRole('button', { name: /Neon Wake/ }).innerText(), /AKTIV/);
+  await host.evaluate(() => {
+    const key = 'pocket-circuit.profile.v1';
+    const profile = JSON.parse(localStorage.getItem(key));
+    profile.coins = 1000;
+    localStorage.setItem(key, JSON.stringify(profile));
+  });
+  await host.reload();
+  await host.getByRole('button', { name: 'Garage', exact: true }).click();
+  await host.getByRole('button', { name: /Sunset Rider/ }).click();
+  await host.getByRole('button', { name: 'Fahrer freischalten' }).click();
+  await host.getByRole('button', { name: /Sunburst/ }).click();
+  await host.getByRole('button', { name: 'Reifen freischalten' }).click();
+  const cosmetics = await host.evaluate(() => JSON.parse(localStorage.getItem('pocket-circuit.profile.v1')));
+  assert.equal(cosmetics.equippedDriver, 'sunset');
+  assert.equal(cosmetics.equippedTire, 'sunburst');
   await host.getByRole('button', { name: 'Rennen', exact: true }).click();
   await host.getByRole('button', { name: 'Auf die Strecke', exact: true }).click();
+  await host.locator('.start-lights').first().waitFor();
   await host.waitForTimeout(3500);
   await host.keyboard.down('KeyW');
   await host.waitForTimeout(2200);

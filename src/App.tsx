@@ -23,12 +23,12 @@ import {
 } from 'lucide-react';
 import GameSurface from './GameSurface';
 import type { RaceSession } from './GameSurface';
-import { TRACKS, SKINS, TRAILS, TRACK_WEATHER, getTrack, getSkin, getTrail } from './shared';
+import { TRACKS, SKINS, TRAILS, DRIVERS, TIRES, TRACK_WEATHER, getTrack, getSkin, getTrail, getDriver, getTire } from './shared';
 import type { GraphicsQuality } from './game/environment';
 import type { InputState, RaceState, RoomState, TrackId } from './shared';
 import { createRace, trackSamples } from './game/simulation';
 import { Multiplayer, type ConnectionStatus } from './network';
-import { loadProfile, saveProfile, levelFor, rewardRace, buySkin, buyTrail, formatTime } from './profile';
+import { loadProfile, saveProfile, levelFor, rewardRace, buySkin, buyTrail, buyDriver, buyTire, formatTime } from './profile';
 import type { Profile } from './profile';
 
 type Page = 'race' | 'garage' | 'career';
@@ -61,8 +61,10 @@ export default function App() {
       race: RaceState;
       localId: string;
     } | null>(null),
-    [viewSkin, setViewSkin] = useState('lime'),
-    [viewTrail, setViewTrail] = useState('none');
+    [viewSkin, setViewSkin] = useState(profile.equipped),
+    [viewTrail, setViewTrail] = useState(profile.equippedTrail),
+    [viewDriver, setViewDriver] = useState(profile.equippedDriver),
+    [viewTire, setViewTire] = useState(profile.equippedTire);
   const netRef = useRef<Multiplayer | null>(null),
     profileRef = useRef(profile),
     roomRef = useRef<RoomState | null>(null),
@@ -149,7 +151,7 @@ export default function App() {
     netRef.current = service;
     setNetwork(service);
     try {
-      const player = { name: profile.name.trim() || 'Rookie', skin: profile.equipped, trail: profile.equippedTrail };
+      const player = { name: profile.name.trim() || 'Rookie', skin: profile.equipped, trail: profile.equippedTrail, driver: profile.equippedDriver, tire: profile.equippedTire };
       if (join) await service.join(joinCode.trim(), player);
       else await service.host(player, track);
     } catch (error) {
@@ -169,7 +171,7 @@ export default function App() {
     inputs.current = {};
     setRace({
       state: createRace(track, [
-        { id: 'local', name: profile.name.trim() || 'Rookie', skin: profile.equipped, trail: profile.equippedTrail, ready: true },
+        { id: 'local', name: profile.name.trim() || 'Rookie', skin: profile.equipped, trail: profile.equippedTrail, driver: profile.equippedDriver, tire: profile.equippedTire, ready: true },
       ]),
       localId: 'local',
       online: false,
@@ -221,6 +223,22 @@ export default function App() {
       setProfile(updated);
       setNotice(`${getTrail(viewTrail).name} gehört jetzt dir!`);
     }
+  }
+  function selectDriver(id: string) {
+    setViewDriver(id);
+    if (profile.ownedDrivers.includes(id)) setProfile((p) => ({ ...p, equippedDriver: id }));
+  }
+  function purchaseDriver() {
+    const updated = buyDriver(profile, viewDriver);
+    if (updated) { setProfile(updated); setNotice(`${getDriver(viewDriver).name} gehört jetzt dir!`); }
+  }
+  function selectTire(id: string) {
+    setViewTire(id);
+    if (profile.ownedTires.includes(id)) setProfile((p) => ({ ...p, equippedTire: id }));
+  }
+  function purchaseTire() {
+    const updated = buyTire(profile, viewTire);
+    if (updated) { setProfile(updated); setNotice(`${getTire(viewTire).name} gehört jetzt dir!`); }
   }
   async function copyRoom() {
     if (!room) return;
@@ -313,6 +331,8 @@ export default function App() {
           <GameSurface
             trackId={track}
             skinId={page === 'garage' ? viewSkin : profile.equipped}
+            driverId={page === 'garage' ? viewDriver : profile.equippedDriver}
+            tireId={page === 'garage' ? viewTire : profile.equippedTire}
             trailId={page === 'garage' ? viewTrail : profile.equippedTrail}
             quality={quality}
             onQuality={setQuality}
@@ -703,9 +723,27 @@ export default function App() {
                 </button>
               </div>
             )}
+            <div className="section-heading trail-heading"><div><span className="eyebrow">FAHRER / {profile.ownedDrivers.length} VON {DRIVERS.length}</span><h2>Wer sitzt am Steuer?</h2></div><Sparkles size={22} /></div>
+            <div className="cosmetic-grid">
+              {DRIVERS.map((item) => <button key={item.id} className={`cosmetic-card ${viewDriver === item.id ? 'selected' : ''}`} onClick={() => selectDriver(item.id)}>
+                <span className="cosmetic-icon helmet-icon" style={{ '--cosmetic': item.color } as React.CSSProperties}>●</span>
+                <span><small>{item.label}</small><b>{item.name}</b><em>{profile.equippedDriver === item.id ? 'AKTIV' : profile.ownedDrivers.includes(item.id) ? 'In deiner Garage' : `${item.price} Münzen · Level ${item.level}`}</em></span>
+                {profile.ownedDrivers.includes(item.id) ? <Check size={16} /> : <Lock size={16} />}
+              </button>)}
+            </div>
+            {!profile.ownedDrivers.includes(viewDriver) && <div className="garage-buy"><span><b>{getDriver(viewDriver).name}</b><p>Ein neuer Look für deinen Fahrer.</p></span><button className="primary" onClick={purchaseDriver} disabled={level < getDriver(viewDriver).level || profile.coins < getDriver(viewDriver).price}>{level < getDriver(viewDriver).level ? `Ab Level ${getDriver(viewDriver).level}` : profile.coins < getDriver(viewDriver).price ? 'Noch Münzen sammeln' : 'Fahrer freischalten'} <Coins size={18} /></button></div>}
+            <div className="section-heading trail-heading"><div><span className="eyebrow">REIFEN / {profile.ownedTires.length} VON {TIRES.length}</span><h2>Dein Grip. Dein Stil.</h2></div><Sparkles size={22} /></div>
+            <div className="cosmetic-grid">
+              {TIRES.map((item) => <button key={item.id} className={`cosmetic-card ${viewTire === item.id ? 'selected' : ''}`} onClick={() => selectTire(item.id)}>
+                <span className="cosmetic-icon tire-icon" style={{ '--cosmetic': item.color } as React.CSSProperties}>◉</span>
+                <span><small>{item.label}</small><b>{item.name}</b><em>{profile.equippedTire === item.id ? 'AKTIV' : profile.ownedTires.includes(item.id) ? 'In deiner Garage' : `${item.price} Münzen · Level ${item.level}`}</em></span>
+                {profile.ownedTires.includes(item.id) ? <Check size={16} /> : <Lock size={16} />}
+              </button>)}
+            </div>
+            {!profile.ownedTires.includes(viewTire) && <div className="garage-buy"><span><b>{getTire(viewTire).name}</b><p>Reifen für dein nächstes Rennen.</p></span><button className="primary" onClick={purchaseTire} disabled={level < getTire(viewTire).level || profile.coins < getTire(viewTire).price}>{level < getTire(viewTire).level ? `Ab Level ${getTire(viewTire).level}` : profile.coins < getTire(viewTire).price ? 'Noch Münzen sammeln' : 'Reifen freischalten'} <Coins size={18} /></button></div>}
             {room && (
               <p className="subtle">
-                Der neue Skin oder Trail gilt im nächsten erstellten oder betretenen Raum.
+                Neue Garage-Teile gelten im nächsten erstellten oder betretenen Raum.
               </p>
             )}
           </section>
@@ -854,6 +892,7 @@ export default function App() {
       )}
       {reward && me && (
         <div className="result-overlay">
+          <div className="finish-burst" aria-hidden="true">{Array.from({ length: 22 }, (_, i) => <i key={i} style={{ '--i': i, left: `${(i * 43) % 100}%` } as React.CSSProperties} />)}</div>
           <div className="result-card">
             <span className="eyebrow">
               {me.finishTime === null ? 'ZEITLIMIT ERREICHT' : 'ZIELLINIE ÜBERQUERT'}

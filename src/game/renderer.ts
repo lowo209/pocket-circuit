@@ -246,9 +246,9 @@ export class KartRenderer {
     this.renderer.setSize(width, height, false);
   }
 
-  setSkin(skinId: string) {
-    if (this.attract.userData.skin === skinId) return;
-    const replacement = makeKart(skinId);
+  setCosmetics(skinId: string, driverId: string, tireId: string) {
+    if (this.attract.userData.skin === skinId && this.attract.userData.driver === driverId && this.attract.userData.tire === tireId) return;
+    const replacement = makeKart(skinId, driverId, tireId);
     replacement.position.copy(this.attract.position);
     replacement.rotation.copy(this.attract.rotation);
     replacement.scale.copy(this.attract.scale);
@@ -780,14 +780,14 @@ export class KartRenderer {
         }
       for (const racer of state.racers) {
         let kart = this.racers.get(racer.id);
-        if (kart && kart.userData.skin !== racer.skin) {
+        if (kart && (kart.userData.skin !== racer.skin || kart.userData.driver !== (racer.driver ?? 'rookie') || kart.userData.tire !== (racer.tire ?? 'standard'))) {
           this.scene.remove(kart);
           disposeObject(kart);
           this.racers.delete(racer.id);
           kart = undefined;
         }
         if (!kart) {
-          kart = makeKart(racer.skin);
+          kart = makeKart(racer.skin, racer.driver ?? 'rookie', racer.tire ?? 'standard');
           this.racers.set(racer.id, kart);
           this.scene.add(kart);
         }

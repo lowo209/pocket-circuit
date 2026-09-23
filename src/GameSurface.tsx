@@ -30,6 +30,8 @@ export interface RaceSession {
 interface Props {
   trackId: TrackId;
   skinId: string;
+  driverId: string;
+  tireId: string;
   trailId: string;
   quality: GraphicsQuality;
   onQuality: (quality: GraphicsQuality) => void;
@@ -42,6 +44,8 @@ interface Props {
 export default function GameSurface({
   trackId,
   skinId,
+  driverId,
+  tireId,
   trailId,
   quality,
   onQuality,
@@ -82,8 +86,8 @@ export default function GameSurface({
     renderer.current?.setTrack(trackId);
   }, [trackId]);
   useEffect(() => {
-    renderer.current?.setSkin(skinId);
-  }, [skinId]);
+    renderer.current?.setCosmetics(skinId, driverId, tireId);
+  }, [skinId, driverId, tireId]);
   useEffect(() => {
     renderer.current?.setPreviewTrail(trailId);
   }, [trailId]);
@@ -321,12 +325,16 @@ export default function GameSurface({
           </div>
           {hud.phase === 'countdown' && (
             <div className="countdown" key={Math.ceil(hud.countdown)}>
+              <div className="start-lights" aria-label="Startampel">
+                {[3, 2, 1].map((n) => <i key={n} className={hud.countdown <= n ? 'lit' : ''} />)}
+              </div>
               <strong>{Math.max(1, Math.ceil(hud.countdown))}</strong>
               <span>MACH DICH BEREIT</span>
             </div>
           )}
           {hud.phase === 'racing' && hud.elapsed < 0.8 && (
             <div className="countdown go">
+              <div className="start-lights green"><i /><i /><i /></div>
               <strong>GO!</strong>
             </div>
           )}

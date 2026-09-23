@@ -3,6 +3,8 @@ import { after, beforeEach, test } from 'node:test';
 import {
   buySkin,
   buyTrail,
+  buyDriver,
+  buyTire,
   levelFor,
   loadProfile,
   newProfile,
@@ -147,6 +149,28 @@ test('both money and level are required for a purchase', () => {
   assert.equal(buySkin(levelTwo, 'missing-skin'), null);
   assert.equal(richRookie.coins, 1000);
   assert.deepEqual(richRookie.owned, ['lime']);
+});
+
+test('driver and tire purchases persist and old profiles receive safe defaults', () => {
+  const rich = { ...newProfile(), coins: 1000, xp: 250 };
+  const driver = buyDriver(rich, 'volt');
+  assert.ok(driver);
+  const tires = buyTire(driver, 'aqua');
+  assert.ok(tires);
+  assert.equal(tires.equippedDriver, 'volt');
+  assert.equal(tires.equippedTire, 'aqua');
+  assert.equal(tires.coins, 260);
+  assert.equal(buyDriver(tires, 'volt'), null);
+  assert.equal(buyTire(tires, 'invalid'), null);
+  saveProfile(tires);
+  assert.deepEqual(loadProfile(), tires);
+  const old = { ...newProfile() } as Record<string, unknown>;
+  delete old.ownedDrivers; delete old.equippedDriver;
+  delete old.ownedTires; delete old.equippedTire;
+  localStorage.setItem('pocket-circuit.profile.v1', JSON.stringify(old));
+  const migrated = loadProfile();
+  assert.deepEqual(migrated.ownedDrivers, ['rookie']);
+  assert.deepEqual(migrated.ownedTires, ['standard']);
 });
 
 test('bought trails persist and migrate older profiles without losing skins', () => {

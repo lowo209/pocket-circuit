@@ -206,11 +206,28 @@ export const TRAILS: TrailStyle[] = [
   { id: 'rainbow', name: 'Rainbow Road', color: '#ff78c9', price: 750, level: 4, label: 'Color shift' },
 ];
 export const getTrail = (id: string) => TRAILS.find((trail) => trail.id === id) ?? TRAILS[0];
+export interface CosmeticStyle { id: string; name: string; color: string; price: number; level: number; label: string; }
+export const DRIVERS: CosmeticStyle[] = [
+  { id: 'rookie', name: 'Rookie', color: '#f5f0dc', price: 0, level: 1, label: 'Classic helmet' },
+  { id: 'sunset', name: 'Sunset Rider', color: '#ff966d', price: 240, level: 1, label: 'Coral racing suit' },
+  { id: 'volt', name: 'Volt', color: '#66eee1', price: 420, level: 2, label: 'Cyber racer' },
+  { id: 'royal', name: 'Royal Rush', color: '#b99aff', price: 650, level: 3, label: 'Purple champion' },
+];
+export const TIRES: CosmeticStyle[] = [
+  { id: 'standard', name: 'Street', color: '#cbd4dc', price: 0, level: 1, label: 'Silver rims' },
+  { id: 'sunburst', name: 'Sunburst', color: '#ffbf65', price: 180, level: 1, label: 'Golden sidewalls' },
+  { id: 'aqua', name: 'Aqua Grip', color: '#69e9e9', price: 320, level: 2, label: 'Cyan racing rims' },
+  { id: 'plasma', name: 'Plasma', color: '#ed83f9', price: 520, level: 3, label: 'Neon violet rims' },
+];
+export const getDriver = (id: string) => DRIVERS.find((item) => item.id === id) ?? DRIVERS[0];
+export const getTire = (id: string) => TIRES.find((item) => item.id === id) ?? TIRES[0];
 export interface Player {
   id: string;
   name: string;
   skin: string;
   trail?: string;
+  driver?: string;
+  tire?: string;
   ready: boolean;
   bot?: boolean;
 }
@@ -235,6 +252,8 @@ export interface Racer {
   name: string;
   skin: string;
   trail?: string;
+  driver?: string;
+  tire?: string;
   bot: boolean;
   x: number;
   z: number;

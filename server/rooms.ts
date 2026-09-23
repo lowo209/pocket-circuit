@@ -5,7 +5,7 @@ import {
   restoreRaceRuntime,
   stepRace,
 } from '../src/game/simulation.js';
-import { EMPTY_INPUT, SKINS, TRAILS } from '../src/shared.js';
+import { EMPTY_INPUT, SKINS, TRAILS, DRIVERS, TIRES } from '../src/shared.js';
 import type { InputState, TrackId } from '../src/shared.js';
 import type { RoomStore, StoredRoom } from './store.js';
 
@@ -30,6 +30,8 @@ export interface Identity {
   name: string;
   skin: string;
   trail?: string;
+  driver?: string;
+  tire?: string;
 }
 export interface Membership {
   code: string;
@@ -59,7 +61,11 @@ export function parseIdentity(value: Record<string, unknown>): Identity {
   if (value.trail !== undefined &&
       (typeof value.trail !== 'string' || !TRAILS.some((trail) => trail.id === value.trail)))
     throw new ProtocolError('Dieser Trail ist nicht verfügbar.');
-  return { name: value.name.trim(), skin: value.skin, trail: (value.trail as string | undefined) ?? 'none' };
+  if (value.driver !== undefined && (typeof value.driver !== 'string' || !DRIVERS.some((item) => item.id === value.driver)))
+    throw new ProtocolError('Dieser Fahrer ist nicht verfügbar.');
+  if (value.tire !== undefined && (typeof value.tire !== 'string' || !TIRES.some((item) => item.id === value.tire)))
+    throw new ProtocolError('Diese Reifen sind nicht verfügbar.');
+  return { name: value.name.trim(), skin: value.skin, trail: (value.trail as string | undefined) ?? 'none', driver: (value.driver as string | undefined) ?? 'rookie', tire: (value.tire as string | undefined) ?? 'standard' };
 }
 
 export function parseCode(value: unknown): string {

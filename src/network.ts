@@ -46,14 +46,14 @@ export class Multiplayer {
   get isHost() {
     return Boolean(this.id && this.currentRoom?.hostId === this.id);
   }
-  async host(player: { name: string; skin: string; trail?: string }, trackId: TrackId): Promise<void> {
-    return this.begin({ type: 'create', name: player.name, skin: player.skin, trail: player.trail ?? 'none', trackId });
+  async host(player: { name: string; skin: string; trail?: string; driver?: string; tire?: string }, trackId: TrackId): Promise<void> {
+    return this.begin({ type: 'create', name: player.name, skin: player.skin, trail: player.trail ?? 'none', driver: player.driver ?? 'rookie', tire: player.tire ?? 'standard', trackId });
   }
-  async join(rawCode: string, player: { name: string; skin: string; trail?: string }): Promise<void> {
+  async join(rawCode: string, player: { name: string; skin: string; trail?: string; driver?: string; tire?: string }): Promise<void> {
     const code = rawCode.trim().toUpperCase();
     if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code))
       throw new Error('Bitte gib einen gültigen sechsstelligen Raumcode ein.');
-    return this.begin({ type: 'join', code, name: player.name, skin: player.skin, trail: player.trail ?? 'none' });
+    return this.begin({ type: 'join', code, name: player.name, skin: player.skin, trail: player.trail ?? 'none', driver: player.driver ?? 'rookie', tire: player.tire ?? 'standard' });
   }
   setReady(ready: boolean) {
     this.send({ type: 'ready', ready });

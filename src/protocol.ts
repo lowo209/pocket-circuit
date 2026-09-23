@@ -1,6 +1,8 @@
 import {
   SKINS,
   TRAILS,
+  DRIVERS,
+  TIRES,
   type InputState,
   type Player,
   type Racer,
@@ -28,6 +30,8 @@ function skin(value: unknown): value is string {
 function trail(value: unknown): value is string {
   return typeof value === 'string' && TRAILS.some((item) => item.id === value);
 }
+const driver = (value: unknown) => typeof value === 'string' && DRIVERS.some((item) => item.id === value);
+const tire = (value: unknown) => typeof value === 'string' && TIRES.some((item) => item.id === value);
 function input(value: unknown): value is InputState {
   return record(value) && INPUT_KEYS.every((key) => typeof value[key] === 'boolean');
 }
@@ -38,6 +42,8 @@ function player(value: unknown): value is Player {
     text(value.name, 20) &&
     skin(value.skin) &&
     (value.trail === undefined || trail(value.trail)) &&
+    (value.driver === undefined || driver(value.driver)) &&
+    (value.tire === undefined || tire(value.tire)) &&
     typeof value.ready === 'boolean' &&
     !value.bot
   );
@@ -63,7 +69,9 @@ function room(value: unknown): value is RoomState {
 }
 function racer(value: unknown): value is Racer {
   if (!record(value) || !text(value.id) || !text(value.name, 20) || !skin(value.skin) ||
-      (value.trail !== undefined && !trail(value.trail))) return false;
+      (value.trail !== undefined && !trail(value.trail)) ||
+      (value.driver !== undefined && !driver(value.driver)) ||
+      (value.tire !== undefined && !tire(value.tire))) return false;
   return (
     [
       'x',
