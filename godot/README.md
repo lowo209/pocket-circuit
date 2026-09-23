@@ -1,14 +1,14 @@
-# Pocket Circuit — Godot v0.1 development preview
+# Pocket Circuit — Godot v0.2 development preview
 
 A new standalone Windows game built with Godot 4 and GDScript. The repository's original web game remains a reference. Development of the rebuild happens here.
 
-**This is a playable graybox milestone, not a finished public release.** Its original procedural cars and harbor buildings are placeholders for the more realistic art direction. It is currently single-player.
+**This is a playable visual-remake milestone, not a finished public release.** Three locations from the web game now have new geometry, original surface textures, lighting and atmosphere. It is currently single-player; the full realistic remake remains in development.
 
 ## Play
 
-Extract the entire `PocketCircuit_v0.1-dev.zip` into one folder and run `PocketCircuit.exe`. Keep `PocketCircuit.pck` beside it. Godot is not required on the player's PC. Do not run directly from inside the ZIP.
+Extract the entire `PocketCircuit_v0.2-dev.zip` into one folder and run `PocketCircuit.exe`. Keep `PocketCircuit.pck` beside it. Godot is not required on the player's PC. Do not run directly from inside the ZIP.
 
-Enter Harbor lets you drive around the small test area. Drive near the Harbor Club sign and press E to start, or choose Quick Race from the menu. Complete three laps through the checkpoints, see your result, and return to the harbor. A race has a five-minute time limit; unfinished races award no coins.
+Choose Sunset Bay, Dust Valley or Neon Harbor from the menu. Explore Paddock lets you drive around the selected location. Drive near the PIT CLUB sign and press E to start, or choose Quick Race. Complete three laps through the checkpoints, see your result, and return to the paddock. A race has a five-minute time limit; unfinished races award no coins.
 
 | Input | Action |
 | --- | --- |
@@ -23,13 +23,15 @@ Enter Harbor lets you drive around the small test area. Drive near the Harbor Cl
 
 ## Included
 
-- Main menu, drivable hub and one Harbor Sprint circuit.
-- One car design, six liveries and five AI opponents.
+- Main menu, drivable paddocks and three circuits based on the original web layouts.
+- Sculpted kart bodies, helmeted drivers, wheel hubs, six liveries and five AI opponents.
 - Arcade driving, drift boosts, rechargeable boost, car collisions and recovery.
 - Countdown, ordered gates, three laps, position display and results.
 - Coins, race count, best lap, settings and AI skill saved locally.
 - Low/Medium/High/Ultra presets, fullscreen, VSync, FPS cap and engine volume.
-- Simple tire/boost particles, chase camera and a generated engine sound.
+- Tire/boost particles, chase camera, live minimap and a generated engine sound.
+- Textured asphalt, sandstone and plaster; original coast/canyon/harbor scenery, water shader and night rain.
+- Saved map scenes with editable objects, collisions, materials and lights.
 - Windows x86-64 export preset and packaging script.
 
 ## Adaptive AI
@@ -42,6 +44,10 @@ Completed player lap times estimate average speed. After each completed race, sk
 
 Import `project.godot` in Godot 4.7.2, the installed version used to validate this milestone. Press F6 on `scenes/main.tscn`, or F5 to run the project. The Compatibility renderer targets modest hardware; actual minimum requirements have not been measured yet.
 
+The installed project is at `C:\Users\Loren\Documents\pocket-racer\project.godot`, matching the folder created in your screenshot. Open the existing Pocket Racer entry in Godot's Project Manager (its title updates to Pocket Circuit after scanning). You do not need to create another empty project. The Git checkout remains under `Documents/ChatGPT/Pocket Racer/pocket-circuit`; before future Git commits, bring edits made in the installed project back into its `godot/` directory.
+
+Open `maps/sunset_bay.tscn`, `maps/dust_valley.tscn` or `maps/neon_harbor.tscn` for level editing. See [art assets and editing guidance](docs/ART_ASSETS.md). The original empty project configuration is backed up separately before installation.
+
 Code is separated into small systems:
 
 - `scripts/main.gd`: game states, UI, player input, camera and sound.
@@ -50,7 +56,7 @@ Code is separated into small systems:
 - `scripts/race.gd`: race clock, checkpoints and results.
 - `scripts/ai.gd`: opponent decisions.
 - `scripts/profile.gd`: local saves and between-race adaptation.
-- `scripts/world.gd`: temporary harbor construction and lighting.
+- `scripts/world.gd`: map-generation source; the game loads the saved scenes under `maps/`.
 
 The car takes throttle/steering inputs from either a person or an AI. The race system works independently of menu controls. These boundaries will help when adding host-authoritative multiplayer, but **no network play is implemented yet**.
 
@@ -72,4 +78,4 @@ Before a stable public release, test the ZIP on a second Windows PC without Godo
 
 ## Next milestones
 
-See [the roadmap](docs/ROADMAP.md). There are no shops, upgrade purchases, NPCs, licensed music, item weapons, gamepad controls, internet rooms or realistic finished models in v0.1. Coins are saved for future progression and cannot yet be spent.
+See [the roadmap](docs/ROADMAP.md). There are no shops, upgrade purchases, NPC interactions, licensed music, item weapons, gamepad controls or internet rooms in v0.2. Coins are saved for future progression and cannot yet be spent. This is not feature parity with the web version yet.

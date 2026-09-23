@@ -1,4 +1,4 @@
-POCKET CIRCUIT v0.1 — DEVELOPMENT PREVIEW
+POCKET CIRCUIT v0.2 — DEVELOPMENT PREVIEW
 
 Extract the entire ZIP first. Launch PocketCircuit.exe.
 PocketCircuit.pck must stay beside the executable. Godot is not required.
@@ -9,7 +9,8 @@ WASD / arrows: drive. Shift + steering: drift, release for a boost.
 Space: rechargeable boost. E: race near the Harbor Club sign.
 R: recover to the track. Esc: pause/resume.
 
-Enter Harbor for free driving, or Quick Race for a three-lap solo race.
+Choose Sunset Bay, Dust Valley or Neon Harbor from the menu.
+Explore Paddock for free driving, or Quick Race for a three-lap solo race.
 Five AI opponents. Adaptive AI adjusts between completed races;
 disable it in Settings for fixed medium difficulty.
 
@@ -17,7 +18,8 @@ Local progress and settings are stored under:
 %APPDATA%\Godot\app_userdata\Pocket Circuit\
 They remain when you move or replace the extracted game folder.
 
-This preview contains placeholder visuals. Online multiplayer, shops,
+This preview has an initial visual remake with original textures and editable maps.
+It is not the completed realistic remake. Online multiplayer, shops,
 upgrades, NPCs, item weapons and music are planned, not implemented.
 Coins currently cannot be spent. No clean Windows VM test has been run.
 

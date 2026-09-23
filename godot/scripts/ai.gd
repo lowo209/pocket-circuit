@@ -5,7 +5,7 @@ var personality := 0
 
 func drive(kart, course, opponents: Array, time: float) -> void:
 	var index: int = course.nearest(kart.position)
-	var lookahead := 4 + int(absf(kart.speed) / 7)
+	var lookahead := 2 + int(absf(kart.speed) / 12)
 	var lane := sin(time * 0.3 + personality * 2.0) * 1.2
 	# Move to another lane when following a nearby car.
 	for other in opponents:

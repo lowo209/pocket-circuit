@@ -45,9 +45,25 @@ func setup(color: Color) -> void:
 	add_child(body_visual)
 	var paint := material(color, 0.35)
 	var dark := material(Color("162735"))
-	box(body_visual, Vector3(1.7, 0.45, 2.8), Vector3(0, 0.6, 0), paint)
-	box(body_visual, Vector3(1.25, 0.5, 1.15), Vector3(0, 1.02, 0.2), dark)
-	box(body_visual, Vector3(0.2, 0.02, 2.8), Vector3(0, 0.835, 0), material(Color("e7d5ad")))
+	build_body(paint)
+	box(body_visual, Vector3(1.4,0.15,2.9),Vector3(0,0.32,0),dark)
+	box(body_visual, Vector3(0.7,0.48,0.65),Vector3(0,0.78,0.3),dark)
+	box(body_visual, Vector3(0.2,0.025,1.1),Vector3(0,0.81,-0.8),material(Color("e7d5ad")))
+	# Helmet and shoulders make the vehicle read as a driven kart.
+	var helmet := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.31
+	sphere.height = 0.62
+	sphere.radial_segments = 20
+	sphere.rings = 10
+	helmet.mesh = sphere
+	helmet.position = Vector3(0,1.33,0.22)
+	helmet.material_override = material(Color("e2dccb"),0.25)
+	body_visual.add_child(helmet)
+	box(body_visual,Vector3(0.49,0.16,0.12),Vector3(0,1.37,-0.04),material(Color("182b3a"),0.55))
+	box(body_visual,Vector3(0.63,0.36,0.42),Vector3(0,0.99,0.25),paint)
+	for x in [-0.53,0.53]:
+		box(body_visual,Vector3(0.1,0.4,0.12),Vector3(x,0.91,1.18),dark)
 	box(body_visual, Vector3(1.85, 0.13, 0.42), Vector3(0, 1.05, 1.2), paint)
 	for x in [-0.6, 0.6]:
 		box(body_visual, Vector3(0.36, 0.14, 0.06), Vector3(x, 0.69, -1.43), material(Color("ffe9ba")))
@@ -59,12 +75,21 @@ func setup(color: Color) -> void:
 			cylinder.top_radius = 0.38
 			cylinder.bottom_radius = 0.38
 			cylinder.height = 0.28
-			cylinder.radial_segments = 12
+			cylinder.radial_segments = 24
 			wheel.mesh = cylinder
 			wheel.material_override = dark
 			wheel.rotation.z = PI / 2
 			wheel.position = Vector3(x, 0.38, z)
 			body_visual.add_child(wheel)
+			var rim := MeshInstance3D.new()
+			var rim_shape := CylinderMesh.new()
+			rim_shape.top_radius = 0.24
+			rim_shape.bottom_radius = 0.24
+			rim_shape.height = 0.3
+			rim_shape.radial_segments = 16
+			rim.mesh = rim_shape
+			rim.material_override = material(Color("b4bdc5"),0.85)
+			wheel.add_child(rim)
 			wheels.append(wheel)
 	smoke = CPUParticles3D.new()
 	smoke.position = Vector3(0, 0.3, 1.4)
@@ -83,6 +108,27 @@ func setup(color: Color) -> void:
 	smoke.mesh = particle_mesh
 	smoke.emitting = false
 	add_child(smoke)
+
+func build_body(paint: Material) -> void:
+	# Cross sections form a sloping nose and sculpted side pods without a heavy model.
+	var sections := [Vector3(0.65,0.5,-1.45),Vector3(0.85,0.77,-0.75),Vector3(0.8,0.66,0.55),Vector3(0.72,0.68,1.35)]
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in sections.size()-1:
+		var a: Vector3 = sections[i]
+		var b: Vector3 = sections[i+1]
+		var ring_a := [Vector3(-a.x,0.38,a.z),Vector3(-a.x*0.85,a.y,a.z),Vector3(a.x*0.85,a.y,a.z),Vector3(a.x,0.38,a.z)]
+		var ring_b := [Vector3(-b.x,0.38,b.z),Vector3(-b.x*0.85,b.y,b.z),Vector3(b.x*0.85,b.y,b.z),Vector3(b.x,0.38,b.z)]
+		for j in 4:
+			for v in [ring_a[j],ring_b[j],ring_b[(j+1)%4],ring_a[j],ring_b[(j+1)%4],ring_a[(j+1)%4]]:
+				surface.add_vertex(v)
+	surface.generate_normals()
+	var body := MeshInstance3D.new()
+	body.mesh = surface.commit()
+	var double_sided := paint.duplicate() as StandardMaterial3D
+	double_sided.cull_mode = BaseMaterial3D.CULL_DISABLED
+	body.material_override = double_sided
+	body_visual.add_child(body)
 
 func simulate(delta: float, on_road: bool) -> void:
 	if not enabled:

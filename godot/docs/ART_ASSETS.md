@@ -1,0 +1,21 @@
+# v0.2 art assets
+
+Original textures generated with the built-in image-generation tool; no external game assets were used. The image-generation skill supplied the tileable, diffuse-lit material workflow. Geometry, noise materials, water shader, car model, minimap and scene baking were implemented directly in GDScript/Godot.
+
+## Texture prompts
+
+`textures/asphalt.png`: Square seamless tileable albedo texture, worn fine-grain dark gray asphalt, small aggregate, subtle hairline cracks and faded wear. Orthographic top-down scan, uniform neutral diffuse light; no shadows, perspective, markings, objects, text or borders.
+
+`textures/plaster.png`: Square seamless tileable albedo texture of a weathered seaside wall, pale beige plaster with subtle worn patches exposing rough limestone, salt weathering, fine cracks and surface grain. Orthographic surface scan, uniform diffuse light; no windows, doors, text, objects or cast shadows.
+
+`textures/sandstone.png`: Square seamless tileable albedo texture of layered ochre sandstone, sediment bands, eroded grain, shallow fissures and warm rust-brown variation. Orthographic material scan, uniform diffuse illumination; no perspective, directional shadows, sky, objects, text or borders.
+
+These are generated albedo images, not scanned PBR sets. Procedural normal maps and roughness values provide inexpensive additional detail. Repetition and art direction still need further refinement; assets are not a claim of photorealistic final quality.
+
+## Editable maps
+
+Open `maps/sunset_bay.tscn`, `maps/dust_valley.tscn` or `maps/neon_harbor.tscn` to edit props, materials and lighting directly. `scenes/main.tscn` also includes Sunset Bay for immediate editor visibility. The runtime loads these saved scenes; it does not rebuild them on each play.
+
+`tools/bake_maps.gd` is an explicit authoring tool. Running it **overwrites those three map scenes**, so commit or save your hand edits first. The normal build script does not run the generator. The road and checkpoints share `scripts/course.gd`; if you change the route, regenerate roads and retest all races.
+
+The Compatibility renderer remains intentional for modest computers. Most light is one directional light plus ambient sky; night lamps have no shadows and fade at distance. Props stop drawing at distance. Rain counts, shadows and anti-aliasing scale with quality. We have not implemented lightmaps, sophisticated reflections, LOD meshes, finished collision for every decorative object, or an optimized final art pipeline.
