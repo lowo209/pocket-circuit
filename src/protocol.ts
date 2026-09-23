@@ -69,6 +69,7 @@ function racer(value: unknown): value is Racer {
       'position',
       'boost',
       'shield',
+      'magnet',
       'stun',
       'driftCharge',
       'coins',
@@ -81,7 +82,9 @@ function racer(value: unknown): value is Racer {
     (value.item === null ||
       value.item === 'boost' ||
       value.item === 'shield' ||
-      value.item === 'pulse')
+      value.item === 'pulse' ||
+      value.item === 'rocket' ||
+      value.item === 'magnet')
   );
 }
 function race(value: unknown): value is RaceState {

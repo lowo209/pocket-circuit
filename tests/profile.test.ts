@@ -70,6 +70,7 @@ function finishedRace(id = 'completed-race', finishTime: number | null = 95): Ra
         item: null,
         boost: 0,
         shield: 0,
+        magnet: 0,
         stun: 0,
         driftCharge: 0,
         drifting: false,

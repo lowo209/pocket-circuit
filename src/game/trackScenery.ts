@@ -154,6 +154,15 @@ function lighthouse(batch: LandmarkBatch, root: THREE.Group, anchor: Anchor) {
 
 function coast(batch: LandmarkBatch, root: THREE.Group, id: TrackId) {
   lighthouse(batch, root, anchorAt(id, 72, -30));
+  // Fishing boats and navigation lights turn the distant shoreline into a place.
+  for (let i = 0; i < 6; i++) {
+    const a = anchorAt(id, 115 + i * 74, i % 2 ? -42 : 43);
+    local(batch, a, 'box', '#f4e7ce', 0, .65, 0, 6.5, 1.1, 2.4);
+    local(batch, a, 'box', i % 2 ? '#e28e71' : '#6bb5b5', 0, .25, 0, 7.1, .55, 2.7);
+    local(batch, a, 'cylinder', '#f6eed4', -.5, 3.2, 0, .12, 5.3, .12);
+    local(batch, a, 'cone', '#fff5da', 1, 3.2, 0, 2.8, 4.5, .12, 0, 0, Math.PI / 2);
+    local(batch, a, 'box', '#fff2b0', 0, 2.2, -1.45, .35, .35, .15, 0, 0, 0, true);
+  }
   for (let p = 15; p <= 93; p += 6) {
     const a = anchorAt(id, p, 20);
     local(batch, a, 'box', '#b88b62', 0, .27, 0, 8.3, .4, 6.3);
@@ -195,6 +204,14 @@ function mineFrame(batch: LandmarkBatch, a: Anchor, width: number, roof: boolean
 
 function canyon(batch: LandmarkBatch, root: THREE.Group, id: TrackId) {
   const width = getTrack(id).width, length = trackLength(id);
+  for (const [index, fraction] of [.15, .31, .49, .68, .85].entries()) {
+    const a = anchorAt(id, fraction * length, index % 2 ? -39 : 38);
+    for (let layer = 0; layer < 4; layer++)
+      local(batch, a, 'rock', ['#a45e46', '#c77e55', '#e4a46b', '#b66c4b'][layer], 0, 2.2 + layer * 3.3, 0,
+        15 - layer * 2.2, 4.2, 12 - layer * 1.7);
+    local(batch, a, 'cone', '#f0b77a', -8, 2.2, 7, 1.3, 4.5, 1.3);
+    local(batch, a, 'box', '#f8c27b', -8, 4.55, 7, .6, .55, .6, 0, 0, 0, true);
+  }
   for (let p = 24; p <= 78; p += 9) mineFrame(batch, anchorAt(id, p), width, true);
   sign(root, anchorAt(id, 19), 'DUST MINE', 'KEEP THE ENGINE RUNNING', '#f3b477', width + 5, 13.6, -.2);
   const tower = anchorAt(id, 69, -31);
@@ -255,6 +272,20 @@ function neon(batch: LandmarkBatch, root: THREE.Group, id: TrackId) {
   crane(batch, anchorAt(id, 65, -39));
   const harbor = new THREE.Mesh(new THREE.PlaneGeometry(43, 132), new THREE.MeshPhysicalMaterial({ color: '#164658', metalness: .4, roughness: .16, clearcoat: 1, envMapIntensity: 1.2 }));
   harbor.rotation.x = -Math.PI / 2; harbor.position.set(-68, -.035, 53); harbor.receiveShadow = true; root.add(harbor);
+  for (let i = 0; i < 5; i++) {
+    const a = anchorAt(id, 210 + i * 73, i % 2 ? -31 : 32);
+    local(batch, a, 'box', '#244757', 0, .035, 0, 8, .04, 4.8);
+    local(batch, a, 'box', i % 2 ? '#79deda' : '#d091e8', 0, .065, 0, 6.6, .025, .4, 0, 0, 0, true);
+    for (const side of [-1, 1]) {
+      local(batch, a, 'cylinder', '#344f61', side * 5.4, .95, 0, .27, 1.9, .27);
+      local(batch, a, 'box', side > 0 ? '#f69dcf' : '#79eeec', side * 5.4, 1.9, 0, .4, .23, .4, 0, 0, 0, true);
+    }
+  }
+  for (let i = 0; i < 3; i++) {
+    batch.add('box', '#274d60', -77 + i * 9, .35, 17 + i * 33, 8, .7, 20);
+    batch.add('box', i % 2 ? '#cc84e7' : '#67deda', -77 + i * 9, .74, 17 + i * 33, 7.6, .12, 19, 0, 0, 0, true);
+    batch.add('box', '#d1d2bf', -77 + i * 9, 2.3, 17 + i * 33, 3.5, 3, 5);
+  }
   for (const side of [-1, 1]) for (let i = 0; i < 5; i++) {
     const a = anchorAt(id, 15 + i * 19, side * 20);
     const grounded = container(batch, a, 0, 0, 0, i % 2 ? '#42677d' : '#805470');

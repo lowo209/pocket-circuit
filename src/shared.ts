@@ -1,5 +1,5 @@
 export type TrackId = 'coast' | 'canyon' | 'midnight';
-export type ItemKind = 'boost' | 'shield' | 'pulse';
+export type ItemKind = 'boost' | 'shield' | 'pulse' | 'rocket' | 'magnet';
 export type Phase = 'countdown' | 'racing' | 'finished';
 export const TRACK_WEATHER: Record<TrackId, string> = {
   coast: 'Goldene Stunde',
@@ -230,6 +230,7 @@ export interface Racer {
   item: ItemKind | null;
   boost: number;
   shield: number;
+  magnet: number;
   stun: number;
   driftCharge: number;
   drifting: boolean;

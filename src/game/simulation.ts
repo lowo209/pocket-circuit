@@ -297,6 +297,7 @@ export function createRace(trackId: TrackId, players: Player[], fillBots = true)
         item: null,
         boost: 0,
         shield: 0,
+        magnet: 0,
         stun: 0,
         driftCharge: 0,
         drifting: false,
@@ -344,6 +345,20 @@ function useItem(state: RaceState, racer: Racer): void {
   if (!racer.item) return;
   if (racer.item === 'boost') racer.boost = Math.max(racer.boost, 2.25);
   if (racer.item === 'shield') racer.shield = 6;
+  if (racer.item === 'magnet') racer.magnet = Math.max(racer.magnet, 7);
+  if (racer.item === 'rocket') {
+    const target = state.racers
+      .filter((other) => other.id !== racer.id && !other.finished && other.progress > racer.progress && other.progress - racer.progress < 65)
+      .sort((a, b) => a.progress - b.progress)[0];
+    if (target) {
+      if (target.shield > 0) target.shield = 0;
+      else {
+        target.stun = Math.max(target.stun, 1.8);
+        target.speed *= 0.4;
+        target.impact = Math.max(target.impact ?? 0, 0.9);
+      }
+    } else racer.boost = Math.max(racer.boost, 1.1);
+  }
   if (racer.item === 'pulse') {
     for (const other of state.racers) {
       if (
@@ -504,6 +519,7 @@ function advanceRacer(
   }
   racer.boost = Math.max(0, racer.boost - dt);
   racer.shield = Math.max(0, racer.shield - dt);
+  racer.magnet = Math.max(0, racer.magnet - dt);
   racer.stun = Math.max(0, racer.stun - dt);
   if (input.item && !meta.itemHeld) useItem(state, racer);
   meta.itemHeld = input.item;
@@ -613,12 +629,14 @@ function advanceRacer(
     )
       continue;
     const point = sampleTrack(state.trackId, pickup.progress);
-    if (Math.hypot(point.x - racer.x, point.z - racer.z) > 4.7) continue;
+    if (Math.hypot(point.x - racer.x, point.z - racer.z) > (pickup.kind === 'coin' && racer.magnet > 0 ? 13 : 4.7)) continue;
     pickup.availableAt = state.elapsed + (pickup.kind === 'coin' ? 4 : 7);
     if (pickup.kind === 'coin') racer.coins++;
     else {
       const choices: ItemKind[] =
-        racer.position > 3 ? ['boost', 'boost', 'pulse'] : ['boost', 'shield', 'pulse'];
+        racer.position > 3
+          ? ['boost', 'boost', 'pulse', 'rocket', 'magnet']
+          : ['boost', 'shield', 'pulse', 'rocket', 'magnet'];
       racer.item = choices[Math.floor(random(runtime) * choices.length)];
     }
   }

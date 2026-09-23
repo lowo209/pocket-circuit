@@ -84,6 +84,20 @@ test('simultaneous instances cannot advance the same race twice', async () => {
   assert.ok(resumed.race!.state.countdown >= 2.65 - 1e-6, 'long suspension has bounded catch-up');
 });
 
+test('idle race ticks reuse the latest room without rereading player inputs', async () => {
+  const h = harness();
+  const host = await h.first.create(hostIdentity, 'coast', 'host');
+  await h.first.command(host.membership, { type: 'start' });
+  const original = h.store.getInputs.bind(h.store);
+  let reads = 0;
+  h.store.getInputs = async (code) => { reads++; return original(code); };
+  await h.first.advance(host.membership.code);
+  h.tick(100);
+  await h.first.advance(host.membership.code);
+  await h.second.advance(host.membership.code);
+  assert.equal(reads, 1);
+});
+
 test('inputs are bound to connection/race; forged positions and stale sequence cannot take authority', async () => {
   const h = harness();
   const host = await h.first.create(hostIdentity, 'coast', 'host');

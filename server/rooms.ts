@@ -13,6 +13,7 @@ export const RECONNECT_GRACE_MS = 45_000;
 export const SESSION_STALE_MS = 16_000;
 export const INPUT_STALE_MS = 750;
 const STEP_MS = 1000 / 60;
+const ROOM_TICK_MS = 95;
 const MAX_CATCHUP_STEPS = 15;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -273,7 +274,7 @@ export class RoomService {
 
   async touch(code: string, memberships: Membership[]): Promise<StoredRoom> {
     return this.mutate(code, (stored, now) => {
-      let changed = false;
+      let changed = this.reap(stored, now);
       for (const member of memberships) {
         const session = stored.sessions[member.id];
         if (session?.connectionId === member.connectionId) {
@@ -333,6 +334,14 @@ export class RoomService {
   }
 
   async advance(code: string): Promise<StoredRoom> {
+    // Most Function instances only need the latest snapshot. Avoid reading every
+    // input hash and racing a CAS when another instance has just advanced it.
+    const current = await this.store.get(code);
+    if (!current)
+      throw new ProtocolError('Der Raum existiert nicht mehr. Erstelle einen neuen Raum.', true);
+    if (!current.room.racing || !current.race || current.race.state.phase === 'finished' ||
+        this.now() - current.lastTick < ROOM_TICK_MS)
+      return current;
     const inputs = await this.store.getInputs(code);
     return this.mutate(code, (stored, now) => {
       let changed = this.reap(stored, now);

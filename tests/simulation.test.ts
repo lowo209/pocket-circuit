@@ -342,6 +342,40 @@ test('item use is edge-triggered and shield blocks one pulse', () => {
   assert.ok(a.boost > 2);
 });
 
+test('rocket targets the next racer ahead and a shield absorbs it', () => {
+  const state = createRace('coast', [human, { ...human, id: 'second' }], false);
+  advance(state, 3);
+  const [follower, leader] = state.racers;
+  follower.progress = 30;
+  leader.progress = 50;
+  follower.item = 'rocket';
+  leader.shield = 3;
+  stepRace(state, { human: { ...EMPTY_INPUT, item: true } }, 1 / 60);
+  assert.equal(leader.shield, 0);
+  assert.equal(leader.stun, 0);
+  stepRace(state, {}, 1 / 60);
+  follower.item = 'rocket';
+  stepRace(state, { human: { ...EMPTY_INPUT, item: true } }, 1 / 60);
+  assert.ok(leader.stun > 1.7);
+});
+
+test('magnet attracts nearby coins outside normal pickup range', () => {
+  const state = createRace('coast', [human], false);
+  advance(state, 3);
+  const racer = state.racers[0];
+  const point = sampleTrack('coast', 40);
+  racer.x = point.x + Math.cos(point.heading) * 9;
+  racer.z = point.z - Math.sin(point.heading) * 9;
+  racer.progress = 40;
+  state.pickups = [{ id: 99, progress: 40, availableAt: 0, kind: 'coin' }];
+  stepRace(state, {}, 1 / 60);
+  assert.equal(racer.coins, 0);
+  racer.item = 'magnet';
+  stepRace(state, { human: { ...EMPTY_INPUT, item: true } }, 1 / 60);
+  assert.equal(racer.coins, 1);
+  assert.ok(racer.magnet > 6);
+});
+
 test('identical starting players and inputs produce identical simulation state', () => {
   const a = createRace('midnight', [human]),
     b = createRace('midnight', [human]);

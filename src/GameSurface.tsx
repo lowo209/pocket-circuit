@@ -13,6 +13,8 @@ import {
   Zap,
   Shield,
   Radio,
+  Target,
+  Magnet,
   ArrowLeft,
   ArrowRight,
   Volume2,
@@ -142,7 +144,10 @@ export default function GameSurface({
     let frame = 0,
       last = performance.now(),
       netTimer = 0,
-      hudTimer = 0;
+      hudTimer = 0,
+      inputRefresh = 0,
+      lastRaceId = '',
+      lastInput = '';
     const animate = (now: number) => {
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
@@ -155,10 +160,17 @@ export default function GameSurface({
           stepRace(session.state, remoteInputs.current, dt);
         netTimer += dt;
         hudTimer += dt;
+        inputRefresh += dt;
         if (netTimer >= 1 / 20) {
           netTimer = 0;
           if (session.online) {
-            net?.sendInput(localInput);
+            const signature = `${Number(localInput.throttle)}${Number(localInput.brake)}${Number(localInput.left)}${Number(localInput.right)}${Number(localInput.drift)}${Number(localInput.item)}`;
+            if (signature !== lastInput || session.state.id !== lastRaceId || inputRefresh >= 0.25) {
+              net?.sendInput(localInput);
+              lastInput = signature;
+              lastRaceId = session.state.id;
+              inputRefresh = 0;
+            }
           }
         }
         if (hudTimer >= 0.08) {
@@ -201,6 +213,23 @@ export default function GameSurface({
   return (
     <div className={`game-surface ${race ? 'is-racing' : ''}`}>
       <div className="three-canvas" ref={container} />
+      {trackId === 'midnight' && (
+        <div className="lens-rain" aria-hidden="true">
+          {Array.from({ length: 28 }, (_, i) => (
+            <i
+              key={i}
+              style={{
+                left: `${(i * 37 + 13) % 97}%`,
+                top: `${(i * 53 + 7) % 88}%`,
+                width: `${3 + (i % 4) * 2}px`,
+                height: `${5 + (i % 5) * 2}px`,
+                animationDelay: `${-((i * 7) % 19) / 3}s`,
+                animationDuration: `${4 + (i % 6)}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
       {error && (
         <div className="webgl-error">
           <b>3D benötigt WebGL</b>
@@ -268,6 +297,7 @@ export default function GameSurface({
               </div>
             )}
             {me.boost > 0 && <b className="boost-active">BOOST!</b>}
+            {me.magnet > 0 && <b className="boost-active">MAGNET!</b>}
           </div>
           <div className={`item-slot ${me.item ? 'has-item' : ''}`}>
             <small>ITEM</small>
@@ -277,6 +307,10 @@ export default function GameSurface({
               <Shield />
             ) : me.item === 'pulse' ? (
               <Radio />
+            ) : me.item === 'rocket' ? (
+              <Target />
+            ) : me.item === 'magnet' ? (
+              <Magnet />
             ) : (
               <span>?</span>
             )}
@@ -287,6 +321,10 @@ export default function GameSurface({
                   ? 'Schild'
                   : me.item === 'pulse'
                     ? 'Impuls'
+                    : me.item === 'rocket'
+                      ? 'Rakete'
+                      : me.item === 'magnet'
+                        ? 'Magnet'
                     : 'Item-Box holen'}
             </b>
             <kbd>LEERTASTE</kbd>

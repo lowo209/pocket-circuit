@@ -824,7 +824,7 @@ export class KartRenderer {
           snapshot.x !== racer.x ||
           snapshot.z !== racer.z
         ) {
-          snapshot.duration = Math.min(0.1, Math.max(dt, state.elapsed - snapshot.stamp));
+          snapshot.duration = Math.min(0.2, Math.max(dt, state.elapsed - snapshot.stamp));
           snapshot.fromX = kart.position.x;
           snapshot.fromZ = kart.position.z;
           snapshot.fromHeading = kart.rotation.y;

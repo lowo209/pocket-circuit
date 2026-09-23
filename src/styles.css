@@ -215,6 +215,29 @@ main {
   height: 100%;
   display: block;
 }
+.lens-rain {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+.lens-rain i {
+  position: absolute;
+  border-radius: 55% 55% 70% 70%;
+  background: linear-gradient(135deg, #dff8ffb0 3%, #91bbd43b 28%, #658caf1a 68%, #e6fbff9c 100%);
+  box-shadow: inset 1px 1px 2px #ffffffaf, 0 0 2px #13294391;
+  opacity: .58;
+  animation: lens-rain-slide linear infinite;
+}
+@keyframes lens-rain-slide {
+  0%, 55% { transform: translateY(0) scale(1); opacity: .45; }
+  95% { transform: translateY(23px) scaleX(.64); opacity: .72; }
+  100% { transform: translateY(26px) scaleX(.55); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lens-rain i { animation: none; }
+}
 .scene-shade {
   position: absolute;
   inset: 0;

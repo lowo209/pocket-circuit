@@ -365,7 +365,7 @@ export function attachMultiplayerServer(server: EventEmitter, options: Multiplay
     if (!timer) {
       timer = setInterval(() => {
         void pump();
-      }, 1000 / 15);
+      }, 100);
       timer.unref();
     }
   });
